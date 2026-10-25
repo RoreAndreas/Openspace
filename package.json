@@ -5,13 +5,13 @@
   "description": "L'open space : Lilou, la cheffe, et son analyste, une équipe d'agents IA qui travaille sous tes yeux dans un bureau en pixel art, pour une responsable marketing et communication. En ligne sur Cloudflare (IA gratuite ou clé API Claude), ou sur ton ordinateur avec Claude Code et ton compte Claude. D'après « Le Bureau des agents » de VibesMoney (MIT).",
   "license": "MIT",
   "author": "RoreAndreas, d’après VibesMoney (https://vibesmoney.com)",
-  "homepage": "https://github.com/RoreAndreas/openspace#readme",
+  "homepage": "https://github.com/RoreAndreas/Openspace#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/RoreAndreas/openspace.git"
+    "url": "git+https://github.com/RoreAndreas/Openspace.git"
   },
   "bugs": {
-    "url": "https://github.com/RoreAndreas/openspace/issues"
+    "url": "https://github.com/RoreAndreas/Openspace/issues"
   },
   "keywords": [
     "agents",

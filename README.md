@@ -82,7 +82,7 @@ Il te faut :
 - [Claude Code](https://claude.com/claude-code), connecté à ton compte : lance `claude` une fois et connecte-toi.
 
 ```bash
-git clone https://github.com/RoreAndreas/openspace.git
+git clone https://github.com/RoreAndreas/Openspace.git
 cd openspace
 npm install
 npm start
@@ -95,7 +95,7 @@ Le bureau s'ouvre sur http://localhost:4848. Il reconnaît Claude Code tout seul
 - **Le règlement, le tiroir et les skills** partent avec chaque demande. Les skills sont copiés dans le dossier caché `.skills` de la mission.
 - **Ce que l'analyste retient** : il l'écrit dans `a-retenir.md`, et ces lignes rejoignent son tiroir.
 
-Tu peux aussi demander à Claude Code : « Installe et lance l'open space : https://github.com/RoreAndreas/openspace ».
+Tu peux aussi demander à Claude Code : « Installe et lance l'open space : https://github.com/RoreAndreas/Openspace ».
 
 ## Sous le capot
 
