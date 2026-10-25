@@ -1,0 +1,17 @@
+name: Une idée
+description: Un meuble, un métier, une fonction, une surprise… propose ce que tu aimerais voir dans le bureau.
+labels: [idée]
+body:
+  - type: textarea
+    id: idee
+    attributes:
+      label: Ton idée
+      description: Ce que tu aimerais, et à quoi ça te servirait.
+    validations:
+      required: true
+  - type: checkboxes
+    id: aide
+    attributes:
+      label: Coup de main
+      options:
+        - label: Je veux bien la coder moi-même (avec Claude Code, c'est permis !)
