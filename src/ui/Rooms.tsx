@@ -1,25 +1,26 @@
-// Les fenêtres qu'on ouvre en cliquant dans le bureau. Tout y vient de Claude Code, pour de vrai :
-// la fiche d'un agent (sa mission, chacune de ses actions, son rapport), le plan de Max et son
-// historique, l'équipe et ses outils, la machine, les rendus et l'aperçu des sites créés.
+// Les fenêtres qu'on ouvre en cliquant dans le bureau. Tout y vient du vrai travail de l'équipe :
+// la fiche d'un agent (sa mission, chacune de ses actions, son rapport), le plan de Lilou et son
+// historique, l'équipe et ses outils, la machine, les rendus, le tiroir et les skills.
 import { useEffect, useMemo, useState } from 'react';
-import { ROLE_TOOLS, ROLES, TOOL_INFO } from '../../shared/activity.ts';
+import { ACTIVE_ROLES, ROLE_TOOLS, ROLES, TOOL_INFO } from '../../shared/activity.ts';
 import type { PlanItem, Role } from '../../shared/protocol.ts';
-import { jukebox, TRACKS } from '../audio/music.ts';
 import { sfx } from '../audio/sfx.ts';
 import { world } from '../engine/instance.ts';
 import { savePref, teamList, useOffice, type ActView, type Tod } from '../state/store.ts';
 import { useShallow } from 'zustand/react/shallow';
-import { fileIcon, fmtClock, fmtDate, fmtDuration, fmtSize, plural, readable, tilde } from './format.ts';
+import { fileIcon, fmtClock, fmtDate, fmtDuration, fmtSize, plural, readable } from './format.ts';
 import { party } from './interact.ts';
 import { mdToHtml } from './md.ts';
 import { Avatar } from './Panel.tsx';
 import { tidy } from './tidy.ts';
+import { bureau } from '../local/bureau.ts';
+import { DrawerRoom, RulesRoom, SkillsRoom } from './Extras.tsx';
 
 const ICON: Record<string, string> = {
   search: '🔎', web: '🌐', read: '📖', write: '✍️', edit: '✏️', bash: '💻', plan: '📋', skill: '🎓', mcp: '🔌', other: '⚙️',
 };
 
-function Shell({ title, sub, wide, children, onClose }: { title: React.ReactNode; sub?: React.ReactNode; wide?: boolean; children: React.ReactNode; onClose?: () => void }) {
+export function Shell({ title, sub, wide, children, onClose }: { title: React.ReactNode; sub?: React.ReactNode; wide?: boolean; children: React.ReactNode; onClose?: () => void }) {
   const close = onClose ?? (() => useOffice.setState({ modal: null }));
   return (
     <div className="modal-back" onClick={close}>
@@ -47,6 +48,9 @@ export function Rooms() {
     case 'team': return <TeamRoom role={modal.role} />;
     case 'files': return <FilesRoom />;
     case 'preview': return <PreviewRoom missionId={modal.missionId} file={modal.file} />;
+    case 'drawer': return <DrawerRoom />;
+    case 'skills': return <SkillsRoom />;
+    case 'rules': return <RulesRoom />;
   }
 }
 
@@ -64,12 +68,13 @@ function AgentRoom({ id }: { id: string }) {
         <Avatar role={a.role} size={72} />
         <div>
           <span className={`pill-status ${a.status}`}>{working ? (live?.seated ? 'Au travail' : 'En chemin') : a.status === 'done' ? 'A rendu son travail' : 'N’a pas pu finir'}</span>
-          <p className="now">{working && a.act ? <><i>{ICON[a.act.kind]}</i>{a.act.label}</> : a.status === 'done' ? 'Son rapport est sur le bureau de Max.' : working ? 'Il s’installe à son poste…' : ''}</p>
-          <p className="small muted">Un vrai sous-agent Claude Code (« {role.type || 'renfort'} »), avec ses propres outils : {ROLE_TOOLS[a.role].join(', ') || 'ceux de Max'}.</p>
+          <p className="now">{working && a.act ? <><i>{ICON[a.act.kind]}</i>{a.act.label}</> : a.status === 'done' ? 'Son rapport est sur le bureau de Lilou.' : working ? 'Il s’installe à son poste…' : ''}</p>
+          <p className="small muted">Un vrai agent IA (Cloudflare Workers AI), avec seulement les outils de son métier : {ROLE_TOOLS[a.role].map((t) => TOOL_INFO[t] ?? t).join(', ')}.</p>
+          {a.role === 'analyse' && <button className="btn small" onClick={() => { sfx('open'); useOffice.setState({ modal: { kind: 'drawer' } }); }}>🗄️ Ouvrir son tiroir</button>}
         </div>
       </div>
       <section className="room-sec">
-        <h4>Sa mission, écrite par Max</h4>
+        <h4>Sa mission, écrite par Lilou</h4>
         <p className="brief">{tidy(a.prompt)}</p>
       </section>
       {a.acts.length > 0 && (
@@ -110,7 +115,7 @@ function ActList({ acts }: { acts: ActView[] }) {
 
 // ── Le tableau : le plan, qui fait quoi, et l'historique du plan ──
 function planChanges(prev: PlanItem[] | null, next: PlanItem[]): string[] {
-  if (!prev) return [`Max écrit le plan : ${plural(next.length, 'étape', 'étapes')}`];
+  if (!prev) return [`Lilou écrit le plan : ${plural(next.length, 'étape', 'étapes')}`];
   const out: string[] = [];
   for (const it of next) {
     const before = prev.find((p) => p.text === it.text);
@@ -128,13 +133,13 @@ function BoardRoom() {
   const done = plan.filter((p) => p.status === 'completed').length;
   const steps = useMemo(() => history.map((h, i) => ({ at: h.at, lines: planChanges(i ? history[i - 1].items : null, h.items) })).filter((x) => x.lines.length), [history]);
   return (
-    <Shell title="Le tableau de Max" sub={plan.length ? `${done} étape${done > 1 ? 's' : ''} faite${done > 1 ? 's' : ''} sur ${plan.length}` : 'Le plan de la mission, et qui fait quoi'}>
+    <Shell title="Le tableau de Lilou" sub={plan.length ? `${done} étape${done > 1 ? 's' : ''} faite${done > 1 ? 's' : ''} sur ${plan.length}` : 'Le plan de la mission, et qui fait quoi'}>
       {plan.length > 0 ? (
         <>
           <div className="progress"><i style={{ width: `${(done / plan.length) * 100}%` }} /></div>
           <ul className="plan big">{plan.map((p, i) => <li key={i} className={p.status}><i />{p.text}</li>)}</ul>
         </>
-      ) : <p className="muted">Pas encore de plan : Max en écrit un dès qu’une mission a plusieurs étapes.</p>}
+      ) : <p className="muted">Pas encore de plan : Lilou en écrit un dès qu’une mission a plusieurs étapes.</p>}
       <section className="room-sec">
         <h4>Qui fait quoi <span className="count">{plural(team.length, 'agent', 'agents')}</span></h4>
         {team.length ? (
@@ -174,7 +179,7 @@ function useClock() {
   return now;
 }
 
-const TODS: [Tod, string][] = [['auto', 'Comme ton Mac'], ['day', '☀️ Jour'], ['evening', '🌇 Soir'], ['night', '🌙 Nuit']];
+const TODS: [Tod, string][] = [['auto', 'Selon l’heure'], ['day', '☀️ Jour'], ['evening', '🌇 Soir'], ['night', '🌙 Nuit']];
 
 function ClockRoom() {
   const now = useClock();
@@ -201,72 +206,39 @@ function ClockRoom() {
   );
 }
 
-// ── La machine (le serveur) : Claude Code, le modèle, l'abonnement ──
+// ── La machine (le serveur) : Cloudflare, le modèle, les données ──
 function MachineRoom() {
   const claude = useOffice((s) => s.claude);
   const settings = useOffice((s) => s.settings);
   const mission = useOffice((s) => s.mission);
-  const quota = useOffice((s) => s.quota);
-  const dir = useOffice((s) => s.dir);
-  const connection = useOffice((s) => s.connection);
   const rows: [string, React.ReactNode][] = [
-    ['Claude Code', claude?.found ? `${claude.version} · ${claude.path}` : connection === 'demo' ? 'Démo (rediffusion d’une vraie mission)' : 'introuvable'],
-    ['Connexion', 'ton abonnement Claude (aucune clé API, aucune facturation à l’usage)'],
-    ['Cerveau de Max', mission?.model ? `${mission.model} (réglage : ${settings.chefModel || 'par défaut'})` : settings.chefModel || 'par défaut'],
-    ['Cerveau de l’équipe', settings.teamModel === 'inherit' ? 'le même que Max' : settings.teamModel],
-    ['Permissions', settings.permission === 'auto' ? 'automatiques : l’agent lève la main pour les gestes risqués' : 'demandées avant chaque commande'],
-    ['Énergie (5 h)', quota ? `${Math.round(quota.fiveHour * 100)} % utilisés${quota.resetsAt ? `, rechargée à ${new Date(quota.resetsAt * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}` : 'pas encore mesurée'],
-    ['Dossier du bureau', dir ? tilde(dir) : '—'],
-    ['Mission en cours', mission ? tilde(mission.folder) : 'aucune'],
+    ['Moteur', 'Cloudflare Workers AI (offre gratuite : 10 000 neurons par jour, remis à zéro à minuit UTC)'],
+    ['Cerveau de l’équipe', mission?.model ?? claude?.version ?? settings.model],
+    ['Permissions', settings.permission === 'auto' ? 'automatiques : l’équipe écrit ses fichiers seule' : 'demandées avant chaque fichier'],
+    ['Recherche web', 'par le serveur Cloudflare (DuckDuckGo, ou Tavily si une clé est configurée)'],
+    ['Tes données', 'dans ce navigateur uniquement : missions, fichiers, tiroir, skills. Le serveur ne garde rien.'],
   ];
   return (
     <Shell title="La machine" sub="Ce qui tourne derrière le bureau">
       <dl className="kv">{rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
       <section className="room-sec">
         <h4>Comment ça marche</h4>
-        <p className="small">Max est une vraie séance Claude Code, lancée sans fenêtre dans le dossier de la mission. Son équipe, ce sont de vrais sous-agents Claude Code, chacun avec ses consignes et seulement les outils de son métier. Chaque fois qu’un agent utilise un outil (une recherche, une page lue, un fichier écrit), Claude Code le raconte au bureau, qui le montre aussitôt : un robot qui tape, une bulle, un rapport posé sur le bureau du chef.</p>
-        <p className="small muted">Mode restreint : l’équipe ne sort jamais du dossier de la mission, et ni tes réglages ni tes autres agents ne s’invitent dans le bureau.</p>
+        <p className="small">Lilou et l’analyste sont de vrais agents IA. À chaque étape, l’IA choisit une action (chercher sur internet, lire une page, écrire un fichier, confier une tâche…) ; le bureau l’exécute et la montre aussitôt : un robot qui tape, une bulle, un rapport posé sur le bureau de Lilou.</p>
+        <p className="small muted">Le serveur Cloudflare ne fait que relayer : l’IA, la recherche et la lecture des pages. Il est protégé par ton code d’accès et ne stocke rien.</p>
+        <p className="small muted">D’après « Le Bureau des agents » de VibesMoney (licence MIT).</p>
       </section>
+      <div className="row"><button className="btn small" onClick={() => useOffice.setState({ modal: null, settingsOpen: true })}>⚙️ Réglages</button></div>
     </Shell>
   );
 }
 
-// ── Le jukebox ──
+// ── Le jukebox (sans musique : on allège le bureau) ──
 function JukeboxRoom() {
-  const music = useOffice((s) => s.music);
-  const tr = TRACKS[music.index];
   return (
-    <Shell title="Le jukebox" sub="De la house pour bosser (ou pour l’afterwork)">
-      <div className="now-playing">
-        <div className={`vinyl ${music.playing ? 'spin' : ''}`}><i /></div>
-        <div>
-          <b>{tr.title}</b>
-          <span>{tr.mood}</span>
-          <div className="row">
-            <button className="btn small" onClick={() => jukebox.prev()} aria-label="Morceau précédent">⏮</button>
-            <button className="btn primary small" onClick={() => jukebox.toggle()}>{music.playing ? '⏸ Pause' : '▶ Lecture'}</button>
-            <button className="btn small" onClick={() => jukebox.next()} aria-label="Morceau suivant">⏭</button>
-          </div>
-        </div>
-      </div>
-      <label className="field volume">
-        <span>Volume</span>
-        <input type="range" min={0} max={1} step={0.01} value={music.volume} onChange={(e) => jukebox.setVolume(Number(e.target.value))} />
-      </label>
-      <ul className="tracks">
-        {TRACKS.map((t, i) => (
-          <li key={t.id}>
-            <button className={i === music.index ? 'on' : ''} onClick={() => jukebox.play(i)}>
-              <span>{i === music.index && music.playing ? '♪' : i + 1}</span>
-              <b>{t.title}</b>
-              <em>{t.mood}</em>
-            </button>
-          </li>
-        ))}
-      </ul>
+    <Shell title="Le jukebox" sub="En pause : pas de musique, pour garder le bureau léger">
+      <p className="muted">Le jukebox est débranché. Mais il reste une surprise…</p>
       <div className="row">
         <button className="btn" onClick={() => { useOffice.setState({ modal: null }); party(); }}>🪩 Mode soirée</button>
-        <span className="small muted">Morceaux originaux, composés pour le bureau avec ElevenLabs Music et Google Lyria.</span>
       </div>
     </Shell>
   );
@@ -283,7 +255,7 @@ function TeamRoom({ role }: { role?: Role }) {
   const [open, setOpen] = useState<string | null>(null);
   useEffect(() => { if (tab === 'history' && connection === 'live') send({ t: 'team_history' }); }, [tab, connection, send]);
   const working = (r: Role) => [...world.actors.values()].filter((a) => a.role === r && a.seated).length;
-  const roles: Role[] = ['chef', 'recherche', 'code', 'design', 'redaction', 'analyse'];
+  const roles: Role[] = ACTIVE_ROLES;
   const missions = useMemo(() => {
     const m = new Map<string, { title: string; at: number; entries: NonNullable<typeof history> }>();
     for (const e of history ?? []) {
@@ -293,7 +265,7 @@ function TeamRoom({ role }: { role?: Role }) {
     return [...m.entries()];
   }, [history]);
   return (
-    <Shell title="Toute l’équipe" sub="De vrais agents Claude Code, chacun avec son métier et ses outils" wide>
+    <Shell title="Toute l’équipe" sub="Lilou et son analyste : de vrais agents IA, chacun avec son métier et ses outils" wide>
       <div className="seg tabs">
         <button className={tab === 'now' ? 'on' : ''} onClick={() => setTab('now')}>Cette mission</button>
         <button className={tab === 'roles' ? 'on' : ''} onClick={() => setTab('roles')}>Les métiers</button>
@@ -310,12 +282,12 @@ function TeamRoom({ role }: { role?: Role }) {
             </button>
           ))}
         </div>
-      ) : <p className="muted">Personne au bureau pour l’instant. Donne une mission à Max : il appellera les bons agents.</p>)}
+      ) : <p className="muted">Personne au bureau pour l’instant. Donne une mission à Lilou : elle appellera l’analyste.</p>)}
       {tab === 'roles' && (
         <div className="roles">
           {roles.map((r) => (
             <div key={r} className={`role-card ${role === r ? 'focus' : ''}`} style={{ ['--c' as string]: ROLES[r].color }}>
-              <div className="role-head"><Avatar role={r} size={34} /><div><b>{ROLES[r].icon} {ROLES[r].label}</b><span>{r === 'chef' ? 'Max' : `agent « ${ROLES[r].type} »`} · cerveau : {r === 'chef' ? settings.chefModel || 'par défaut' : settings.teamModel === 'inherit' ? 'comme Max' : settings.teamModel}</span></div>{working(r) > 0 && <em>{working(r)} au travail</em>}</div>
+              <div className="role-head"><Avatar role={r} size={34} /><div><b>{ROLES[r].icon} {ROLES[r].label}</b><span>{r === 'chef' ? 'Lilou' : 'l’analyste'} · cerveau : {settings.model.split('/').pop()}</span></div>{working(r) > 0 && <em>{working(r)} au travail</em>}</div>
               <p>{ROLES[r].what}</p>
               <div className="tools">{ROLE_TOOLS[r].map((t) => <span key={t} title={TOOL_INFO[t] ?? t}>{t}<small>{TOOL_INFO[t] ?? ''}</small></span>)}</div>
             </div>
@@ -323,7 +295,7 @@ function TeamRoom({ role }: { role?: Role }) {
         </div>
       )}
       {tab === 'history' && (
-        connection !== 'live' ? <p className="muted">L’historique vit sur ton ordinateur : lance le bureau avec Claude Code pour le voir.</p>
+        connection !== 'live' ? <p className="muted">Chargement du bureau…</p>
           : !history ? <p className="muted">Chargement…</p>
             : !missions.length ? <p className="muted">Pas encore d’historique.</p>
               : (
@@ -376,7 +348,7 @@ export function FileActions({ files, missionId, disabled, send }: { files: Retur
           <span className="file-icon">{fileIcon(f.ext)}</span>
           <div className="file-id">
             <b title={f.path}>{f.name}</b>
-            <span className="small muted">{fmtSize(f.size)} · par {f.by === 'chef' ? 'Max' : agents[f.by]?.name ?? 'l’équipe'}</span>
+            <span className="small muted">{fmtSize(f.size)} · par {f.by === 'chef' ? 'Lilou' : agents[f.by]?.name ?? 'l’équipe'}</span>
           </div>
           {!disabled && (f.ext === 'html' || f.ext === 'htm') && (
             <button className="btn small primary" onClick={() => { sfx('open'); useOffice.setState({ modal: { kind: 'preview', missionId, file: f.path } }); }}>Voir le site</button>
@@ -384,7 +356,7 @@ export function FileActions({ files, missionId, disabled, send }: { files: Retur
           {!disabled && readable(f.ext) && (
             <button className="btn small" onClick={() => { sfx('open'); useOffice.setState({ modal: null, viewer: { missionId, file: f.path } }); send({ t: 'read', missionId, file: f.path }); send({ t: 'versions', missionId, file: f.path }); }}>Lire</button>
           )}
-          {!disabled && <button className="btn small ghost" onClick={() => send({ t: 'open', missionId, file: f.path })}>Ouvrir</button>}
+          {!disabled && <button className="btn small ghost" onClick={() => send({ t: 'open', missionId, file: f.path })}>Télécharger</button>}
         </div>
       ))}
     </div>
@@ -396,7 +368,8 @@ function PreviewRoom({ missionId, file }: { missionId: string; file: string }) {
   const [device, setDevice] = useState<'desktop' | 'phone'>('desktop');
   const [nonce, setNonce] = useState(0);
   const send = useOffice((s) => s.send);
-  const src = `/apercu/${encodeURIComponent(missionId)}/${file.split('/').map(encodeURIComponent).join('/')}`;
+  const [html, setHtml] = useState<string | null>(null);
+  useEffect(() => { void bureau.fileText(missionId, file).then(setHtml); }, [missionId, file, nonce]);
   const close = () => useOffice.setState({ modal: null });
   return (
     <div className="modal-back" onClick={close}>
@@ -410,11 +383,11 @@ function PreviewRoom({ missionId, file }: { missionId: string; file: string }) {
           </div>
           <button className="btn small" onClick={() => setNonce((n) => n + 1)} title="Recharger">↻</button>
           <button className="btn small" title="Le code de la page, et ses versions successives" onClick={() => { useOffice.setState({ modal: null, viewer: { missionId, file } }); send({ t: 'read', missionId, file }); send({ t: 'versions', missionId, file }); }}>&lt;/&gt; Code et versions</button>
-          <button className="btn small" onClick={() => send({ t: 'open', missionId, file })}>Ouvrir dans le navigateur</button>
+          <button className="btn small" onClick={() => send({ t: 'open', missionId, file })}>Télécharger</button>
           <button className="close" onClick={close} aria-label="Fermer">×</button>
         </div>
         <div className={`monitor-screen ${device}`}>
-          <iframe key={nonce} title={file} src={src} sandbox="allow-scripts allow-forms allow-popups allow-modals" referrerPolicy="no-referrer" />
+          {html !== null && <iframe key={nonce} title={file} srcDoc={html} sandbox="allow-scripts allow-forms allow-popups" referrerPolicy="no-referrer" />}
         </div>
       </div>
     </div>

@@ -346,7 +346,7 @@ export class Renderer {
       const sx = a.seat!.x, sy = a.seat!.y - 12;
       add(sx, sy, on ? 26 : 18, a.role === 'design' && on ? '#ff9fd0' : col, on ? 0.75 : 0.35);
     }
-    // un projecteur doux suit Max (le patron reste toujours bien visible)
+    // un projecteur doux suit Lilou (le patron reste toujours bien visible)
     const chef = world.chef;
     add(chef.x, (chef.seated && chef.seat ? chef.seat.y : chef.y) - 8, 26, '#ffe2c4', 0.42);
     // les yeux des robots

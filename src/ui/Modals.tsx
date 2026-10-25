@@ -1,15 +1,18 @@
 // Les fenêtres par-dessus le bureau : la carte du rendu final, la lecture d'un fichier,
 // les missions précédentes, les réglages, et les petites notifications.
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { sfx } from '../audio/sfx.ts';
 import { savePref, useOffice } from '../state/store.ts';
-import { applySound } from '../audio/sound.ts';
+import { api, getCode, MODELS, setCode } from '../local/api.ts';
+import { dbClear, lsClear } from '../local/db.ts';
+import { download } from '../local/zip.ts';
+import { backupData, restoreData } from './Extras.tsx';
 import { FileList } from './Panel.tsx';
-import { fmtDate, fmtDuration, plural, tilde } from './format.ts';
+import { fmtDate, fmtDuration, plural } from './format.ts';
 import { mdToHtml } from './md.ts';
 import { tidy } from './tidy.ts';
 
-/** La mission est rendue : Max te présente le travail de l'équipe. */
+/** La mission est rendue : Lilou te présente le travail de l'équipe. */
 export function FinalCard() {
   const show = useOffice((s) => s.showFinal);
   const final = useOffice((s) => s.final);
@@ -42,7 +45,7 @@ export function FinalCard() {
       {files > 0 && <FileList />}
       {!replaying && (
         <div className="final-actions">
-          <button className="btn" onClick={() => send({ t: 'open', missionId: mission.id })}>Ouvrir le dossier</button>
+          <button className="btn" onClick={() => send({ t: 'open', missionId: mission.id })}>Tout télécharger (.zip)</button>
           <button className="btn" onClick={() => { close(); useOffice.setState({ draft: ' ' }); }}>Demander une retouche</button>
           <button className="btn primary" onClick={() => { sfx('click'); close(); send({ t: 'new' }); }}>Nouvelle mission</button>
         </div>
@@ -92,12 +95,12 @@ export function Viewer() {
                 <option value="">Version actuelle</option>
                 {versions.slice(1).map((v, i) => (
                   <option key={v.id} value={v.id}>
-                    v{versions.length - 1 - i} · {new Date(v.at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' })} · {v.by === 'chef' ? 'Max' : agents[v.by]?.name ?? 'l’équipe'}
+                    v{versions.length - 1 - i} · {new Date(v.at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' })} · {v.by === 'chef' ? 'Lilou' : agents[v.by]?.name ?? 'l’équipe'}
                   </option>
                 ))}
               </select>
             )}
-            <button className="btn small" onClick={() => send({ t: 'open', missionId: viewer.missionId, file: viewer.file })}>Ouvrir avec l’appli</button>
+            <button className="btn small" onClick={() => send({ t: 'open', missionId: viewer.missionId, file: viewer.file })}>Télécharger</button>
             <button className="close" onClick={close} aria-label="Fermer">×</button>
           </div>
         </div>
@@ -125,7 +128,7 @@ export function History() {
       <div className="modal history" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head"><b>Missions précédentes</b><button className="close" onClick={close} aria-label="Fermer">×</button></div>
         <div className="modal-body">
-          {connection !== 'live' && <p className="muted">Relie le bureau à Claude Code (npm start) pour retrouver tes missions.</p>}
+          {connection !== 'live' && <p className="muted">Chargement du bureau…</p>}
           {connection === 'live' && !missions.length && <p className="muted">Aucune mission pour l’instant. La première t’attend en bas de l’écran.</p>}
           {missions.map((m) => (
             <div key={m.id} className="hist">
@@ -138,7 +141,7 @@ export function History() {
               </div>
               <div className="row">
                 <button className="btn small" title="Rejoue la mission (sans relancer l’équipe) : parfait pour filmer" onClick={() => { sfx('click'); close(); send({ t: 'replay', missionId: m.id }); }}>▶ Rejouer</button>
-                <button className="btn small ghost" onClick={() => send({ t: 'open', missionId: m.id })}>Dossier</button>
+                <button className="btn small ghost" onClick={() => send({ t: 'open', missionId: m.id })}>.zip</button>
               </div>
             </div>
           ))}
@@ -148,55 +151,90 @@ export function History() {
   );
 }
 
-const CHEF_MODELS: [string, string][] = [['sonnet', 'Sonnet (rapide, recommandé)'], ['opus', 'Opus (le plus fin)'], ['fable', 'Fable'], ['haiku', 'Haiku (éclair)'], ['', 'Le modèle par défaut de Claude Code']];
-const TEAM_MODELS: [string, string][] = [['sonnet', 'Sonnet (rapide, recommandé)'], ['haiku', 'Haiku (éclair, économe)'], ['opus', 'Opus (le plus fin)'], ['fable', 'Fable'], ['inherit', 'Le même que Max']];
+/** Le code d'accès : sans lui, le serveur Cloudflare refuse de faire travailler l'équipe. */
+function AccessCode() {
+  const [code, setC] = useState(getCode());
+  const [state, setState] = useState<'idle' | 'checking' | 'ok' | string>('idle');
+  const check = async () => {
+    setCode(code);
+    setState('checking');
+    try { await api.ping(); setState('ok'); sfx('check'); } catch (e) { setState(e instanceof Error ? e.message : String(e)); }
+  };
+  return (
+    <form className="field" onSubmit={(e) => { e.preventDefault(); void check(); }}>
+      <span>Le code d’accès</span>
+      <div className="drawer-add">
+        <input id="access-code" className="text" type="password" autoComplete="current-password" placeholder="Le code choisi sur Cloudflare" value={code} onChange={(e) => { setC(e.target.value); setState('idle'); }} />
+        <button className="btn small primary" type="submit" disabled={!code.trim() || state === 'checking'}>{state === 'checking' ? 'Vérification…' : 'Enregistrer'}</button>
+      </div>
+      {state === 'ok' && <small className="ok-text">✓ Code accepté : l’équipe est prête.</small>}
+      {state !== 'idle' && state !== 'ok' && state !== 'checking' && <small className="err-text">{state}</small>}
+      {state === 'idle' && <small className="muted">Il reste dans ce navigateur. Il protège ton quota gratuit : personne d’autre ne peut faire travailler l’équipe.</small>}
+    </form>
+  );
+}
 
 export function SettingsPanel() {
   const open = useOffice((s) => s.settingsOpen);
   const settings = useOffice((s) => s.settings);
   const send = useOffice((s) => s.send);
-  const claude = useOffice((s) => s.claude);
-  const dir = useOffice((s) => s.dir);
-  const voiceOn = useOffice((s) => s.voiceOn);
   const cameraAuto = useOffice((s) => s.cameraAuto);
+  const toast = useOffice((s) => s.toast);
+  const [confirmErase, setConfirmErase] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   if (!open) return null;
-  const close = () => useOffice.setState({ settingsOpen: false });
+  const close = () => { setConfirmErase(false); useOffice.setState({ settingsOpen: false }); };
   return (
     <div className="modal-back" onClick={close}>
       <div className="modal settings" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head"><b>Réglages du bureau</b><button className="close" onClick={close} aria-label="Fermer">×</button></div>
         <div className="modal-body">
+          <AccessCode />
           <label className="field">
-            <span>Le cerveau de Max (le chef)</span>
-            <select value={settings.chefModel} onChange={(e) => send({ t: 'settings', settings: { chefModel: e.target.value } })}>
-              {CHEF_MODELS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </label>
-          <label className="field">
-            <span>Le cerveau de l’équipe</span>
-            <select value={settings.teamModel} onChange={(e) => send({ t: 'settings', settings: { teamModel: e.target.value } })}>
-              {TEAM_MODELS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            <span>Le cerveau de l’équipe (Cloudflare Workers AI)</span>
+            <select id="model" value={settings.model} onChange={(e) => send({ t: 'settings', settings: { model: e.target.value } })}>
+              {MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
           </label>
           <div className="field">
             <span>Les permissions</span>
-            <label className="radio"><input type="radio" checked={settings.permission === 'auto'} onChange={() => send({ t: 'settings', settings: { permission: 'auto' } })} /> L’équipe décide seule, et lève la main pour les gestes risqués</label>
-            <label className="radio"><input type="radio" checked={settings.permission === 'ask'} onChange={() => send({ t: 'settings', settings: { permission: 'ask' } })} /> Elle demande avant chaque commande</label>
+            <label className="radio"><input type="radio" checked={settings.permission === 'auto'} onChange={() => send({ t: 'settings', settings: { permission: 'auto' } })} /> L’équipe écrit ses fichiers seule</label>
+            <label className="radio"><input type="radio" checked={settings.permission === 'ask'} onChange={() => send({ t: 'settings', settings: { permission: 'ask' } })} /> Elle demande avant chaque fichier</label>
+          </div>
+          <div className="field">
+            <span>L’équipe</span>
+            <div className="row">
+              <button className="btn small" onClick={() => useOffice.setState({ settingsOpen: false, modal: { kind: 'rules' } })}>📜 Le règlement du bureau</button>
+              <button className="btn small" onClick={() => useOffice.setState({ settingsOpen: false, modal: { kind: 'drawer' } })}>🗄️ Le tiroir de l’analyste</button>
+              <button className="btn small" onClick={() => useOffice.setState({ settingsOpen: false, modal: { kind: 'skills' } })}>🎓 Les skills</button>
+            </div>
+          </div>
+          <div className="field">
+            <span>Tes données (elles ne quittent pas ce navigateur)</span>
+            <div className="row">
+              <button className="btn small" onClick={() => download(`openspace-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(backupData(), null, 2), 'application/json')}>💾 Sauvegarder règlement, tiroir et skills</button>
+              <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (!f) return;
+                try { restoreData(await f.text()); toast('info', 'Sauvegarde restaurée.'); } catch (err) { toast('error', err instanceof Error ? err.message : String(err)); }
+              }} />
+              <button className="btn small" onClick={() => fileRef.current?.click()}>📂 Restaurer</button>
+              {!confirmErase
+                ? <button className="btn small stop" onClick={() => setConfirmErase(true)}>Tout effacer…</button>
+                : <button className="btn small stop" onClick={() => { void dbClear().then(() => { lsClear(); location.reload(); }); }}>Oui, effacer missions, tiroir, skills et code</button>}
+            </div>
           </div>
           <div className="field">
             <span>Le spectacle</span>
-            <label className="radio"><input type="checkbox" checked={voiceOn} onChange={(e) => { useOffice.setState({ voiceOn: e.target.checked }); savePref('voice', e.target.checked); applySound(useOffice.getState().sound); }} /> La voix de Max (« C’est parti ! », « Mission accomplie ! », la visite guidée)</label>
             <label className="radio"><input type="checkbox" checked={cameraAuto} onChange={(e) => { useOffice.setState({ cameraAuto: e.target.checked }); savePref('cameraAuto', e.target.checked); }} /> En mode tournage, la caméra suit l’action toute seule</label>
           </div>
-          <p className="small muted">Les réglages comptent pour la prochaine mission. L’équipe ne travaille que dans le dossier de la mission, et ne lance jamais rien hors du bureau sans te demander.</p>
-          {claude?.found && <p className="small muted">Claude Code {claude.version} · {tilde(dir)}</p>}
           <div className="keys">
             <b>Raccourcis</b>
             <span><kbd>V</kbd> cadre vertical (reel)</span>
             <span><kbd>F</kbd> mode tournage</span>
             <span><kbd>C</kbd> caméra auto</span>
             <span><kbd>T</kbd> visite guidée</span>
-            <span><kbd>J</kbd> jukebox</span>
             <span><kbd>N</kbd> jour, soir, nuit</span>
             <span><kbd>M</kbd> son</span>
             <span><kbd>H</kbd> missions précédentes</span>

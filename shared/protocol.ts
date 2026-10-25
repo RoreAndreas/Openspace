@@ -86,11 +86,9 @@ export interface TeamEntry {
 }
 
 export interface Settings {
-  /** le cerveau du chef : '' = le modèle par défaut de Claude Code */
-  chefModel: string;
-  /** le cerveau de l'équipe : sonnet, haiku, opus, fable ou inherit (le même que le chef) */
-  teamModel: string;
-  /** auto : l'équipe décide seule et ne demande que pour les gestes risqués ; ask : elle demande avant chaque commande */
+  /** le modèle Workers AI (le cerveau de Lilou et de l'analyste) */
+  model: string;
+  /** auto : l'équipe écrit ses fichiers seule ; ask : elle demande avant chaque fichier */
   permission: 'auto' | 'ask';
 }
 

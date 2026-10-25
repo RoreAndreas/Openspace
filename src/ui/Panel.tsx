@@ -1,4 +1,4 @@
-// Le panneau de droite : le plan de Max, l'équipe au travail (ce que chacun fait, son rapport),
+// Le panneau de droite : le plan de Lilou, l'équipe au travail (ce que chacun fait, son rapport),
 // les rendus (les fichiers produits) et le fil de ce qui se passe. Sans mission : comment ça marche.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
@@ -8,7 +8,7 @@ import { sfx } from '../audio/sfx.ts';
 import { robotSprite } from '../engine/robots.ts';
 import { teamList, useOffice, type AgentView } from '../state/store.ts';
 import { EXAMPLES } from './Dialog.tsx';
-import { fmtDate, fmtDuration, tilde } from './format.ts';
+import { fmtDate, fmtDuration } from './format.ts';
 import { mdToHtml } from './md.ts';
 import { FileActions } from './Rooms.tsx';
 import { tidy } from './tidy.ts';
@@ -44,7 +44,6 @@ export function Panel() {
 
 function Welcome() {
   const missions = useOffice((s) => s.missions);
-  const dir = useOffice((s) => s.dir);
   const send = useOffice((s) => s.send);
   const connection = useOffice((s) => s.connection);
   return (
@@ -52,12 +51,12 @@ function Welcome() {
       <section className="card">
         <h3>Comment ça marche</h3>
         <ol className="steps">
-          <li><b>Tu dis à Max ce que tu veux</b>, au clavier ou à la voix.</li>
-          <li><b>Il fait le plan et appelle l’équipe</b> : chacun file à son poste (recherche, code, design, rédaction, analyse).</li>
-          <li><b>Tu les regardes bosser</b>, en vrai : chaque bulle, c’est ce que l’agent fait à cet instant.</li>
-          <li><b>Ils te rendent le travail</b> : les fichiers arrivent dans « Les rendus » et dans ton dossier.</li>
+          <li><b>Tu dis à Lilou ce que tu veux</b>, au clavier ou à la voix.</li>
+          <li><b>Elle fait le plan et appelle l’analyste</b>, qui file à son poste.</li>
+          <li><b>Tu le regardes bosser</b>, en vrai : chaque bulle, c’est ce qu’il fait à cet instant.</li>
+          <li><b>Ils te rendent le travail</b> : les rapports arrivent dans « Les rendus », à lire ou télécharger.</li>
         </ol>
-        <p className="small muted">Ce sont de vrais agents Claude Code, qui tournent avec ton abonnement.</p>
+        <p className="small muted">De vrais agents IA (Cloudflare Workers AI). Tes données restent dans ce navigateur.</p>
       </section>
       <section className="card">
         <h3>Des idées de mission</h3>
@@ -67,13 +66,13 @@ function Welcome() {
       </section>
       {connection === 'live' && (
         <section className="card">
-          <h3>Ton bureau</h3>
-          <p className="small muted path">{tilde(dir)}</p>
+          <h3>Ton équipe</h3>
           <div className="row">
-            <button className="btn small" onClick={() => send({ t: 'open_root' })}>Ouvrir le dossier</button>
-            <button className="btn small" onClick={() => send({ t: 'open_root', rules: true })}>Le règlement du bureau</button>
+            <button className="btn small" onClick={() => send({ t: 'open_root', rules: true })}>📜 Le règlement</button>
+            <button className="btn small" onClick={() => send({ t: 'open_root' })}>🗄️ Le tiroir</button>
+            <button className="btn small" onClick={() => { sfx('open'); useOffice.setState({ modal: { kind: 'skills' } }); }}>🎓 Les skills</button>
           </div>
-          <p className="small muted">Le règlement, c’est ce que l’équipe doit savoir sur toi : Max le lit avant chaque mission.</p>
+          <p className="small muted">Le règlement, c’est ce que l’équipe doit savoir sur toi : Lilou le lit avant chaque mission. Le tiroir garde tes couleurs, tes types de texte et ce qu’il faut retenir.</p>
         </section>
       )}
       {missions.length > 0 && (
@@ -84,7 +83,7 @@ function Welcome() {
               <div><b>{m.title}</b><span className="small muted">{fmtDate(m.createdAt)} · {fmtDuration(m.workMs)} · {m.files.length} rendu{m.files.length > 1 ? 's' : ''}</span></div>
               <div className="row">
                 <button className="btn small" onClick={() => { sfx('click'); send({ t: 'replay', missionId: m.id }); }}>Rejouer</button>
-                <button className="btn small ghost" onClick={() => send({ t: 'open', missionId: m.id })}>Dossier</button>
+                <button className="btn small ghost" onClick={() => send({ t: 'open', missionId: m.id })}>.zip</button>
               </div>
             </div>
           ))}
@@ -115,7 +114,7 @@ function TeamSection() {
     return (
       <section className="card">
         <h3>L’équipe</h3>
-        <p className="small muted">Max lit ta demande et choisit qui appeler…</p>
+        <p className="small muted">Lilou lit ta demande et prépare le travail…</p>
       </section>
     );
   }
@@ -147,7 +146,7 @@ function AgentCard({ a, open, onToggle }: { a: AgentView; open: boolean; onToggl
       </button>
       {open && (
         <div className="agent-more">
-          <h4>Sa mission (écrite par Max)</h4>
+          <h4>Sa mission (écrite par Lilou)</h4>
           <p className="brief">{a.prompt}</p>
           {a.acts.length > 0 && (
             <>
@@ -186,8 +185,8 @@ function FilesSection() {
   return (
     <section className="card">
       <h3>Les rendus <span className="count">{files}</span></h3>
-      {files ? <FileList /> : <p className="small muted">Les fichiers de l’équipe arriveront ici (et dans le dossier de la mission).</p>}
-      {mission && !replaying && <button className="btn small ghost" onClick={() => send({ t: 'open', missionId: mission.id })}>Ouvrir le dossier de la mission</button>}
+      {files ? <FileList /> : <p className="small muted">Les fichiers de l’équipe arriveront ici, à lire ou télécharger.</p>}
+      {mission && !replaying && <button className="btn small ghost" onClick={() => send({ t: 'open', missionId: mission.id })}>Tout télécharger (.zip)</button>}
     </section>
   );
 }

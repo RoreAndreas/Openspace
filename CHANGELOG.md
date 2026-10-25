@@ -1,5 +1,18 @@
 # Les versions
 
+## Open space v0.2.0 (25 octobre 2026)
+
+La version Cloudflare, pour une responsable marketing et communication.
+
+- Lilou, la cheffe de projet, et un seul analyste (recherche, analyse, rédaction des rapports).
+- Hébergé sur Cloudflare : un Worker (Workers AI gratuit, recherche web, lecture de pages) protégé par un code d'accès.
+- Aucune donnée sur le serveur : missions, rapports, tiroir et skills restent dans le navigateur (sauvegarde et effacement dans les réglages).
+- Le tiroir de l'analyste : couleurs, types de texte, informations à retenir (il peut y ranger lui-même une note).
+- Les skills (format SKILL.md) : deux de départ, installation depuis un fichier, un lien ou un texte collé.
+- Allégé : plus de musique, de voix ni de démo enregistrée ; le serveur local Claude Code est retiré (Claude pourra être rebranché dans le Worker).
+
+D'après Le Bureau des agents (VibesMoney) :
+
 ## v0.1.0 (14 octobre 2026)
 
 La première version publique.

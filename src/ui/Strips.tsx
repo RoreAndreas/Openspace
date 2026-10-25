@@ -1,4 +1,4 @@
-// En cadre vertical (pour filmer un reel), sous le bureau : le plan de Max et la rangée de l'équipe,
+// En cadre vertical (pour filmer un reel), sous le bureau : le plan de Lilou et la rangée de l'équipe,
 // lisibles en grand sur un téléphone.
 import { useShallow } from 'zustand/react/shallow';
 import { ROLES } from '../../shared/activity.ts';

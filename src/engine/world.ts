@@ -129,7 +129,7 @@ export class World {
     for (const fn of this.rosterListeners) fn();
   }
 
-  /** Le bureau vide, Max à l'accueil (début, nouvelle mission, rediffusion). */
+  /** Le bureau vide, Lilou à l'accueil (début, nouvelle mission, rediffusion). */
   resetAll() {
     this.actors.clear();
     this.seatOf.clear();
@@ -143,7 +143,7 @@ export class World {
     this.assignments = [];
     this.planSize = -1;
     const p = SPOTS.receptionPx;
-    this.actors.set('chef', new Actor('chef', 'chef', 'Max', p.x, p.y));
+    this.actors.set('chef', new Actor('chef', 'chef', 'Lilou', p.x, p.y));
     this.rosterChanged();
   }
 
@@ -261,7 +261,7 @@ export class World {
         const fresh = n !== this.planSize;
         this.planSize = n;
         if (live && fresh) {
-          // Max va écrire le plan au tableau
+          // Lilou va écrire le plan au tableau
           chef.tasks = chef.tasks.filter((t) => t.t !== 'sit');
           this.queue(chef,
             { t: 'walk', tile: SPOTS.board, face: 'up', then: SPOTS.boardPx },
@@ -295,7 +295,7 @@ export class World {
           );
           if (seat) this.queue(a, { t: 'walk', tile: seat.tile }, { t: 'sit', seat });
           else this.queue(a, { t: 'walk', tile: a.standSpot!, face: 'down' });
-          // Max se tourne vers celui qu'il appelle
+          // Lilou se tourne vers celui qu'il appelle
           chef.happyUntil = this.time + 0.8;
         } else if (seat) this.snapSeat(a, seat);
         else { const f = tileFeet(a.standSpot!); a.x = f.x; a.y = f.y; }
@@ -461,7 +461,7 @@ export class World {
         this.fx.floatIcon(a.x, a.y - 24, iconFor(a.act));
       }
     }
-    // Max salue de temps en temps quand il attend à l'accueil
+    // Lilou salue de temps en temps quand il attend à l'accueil
     if (!this.missionActive && !chef.busy && !chef.seated && this.time > this.waveAt) {
       this.waveAt = this.time + 9 + Math.random() * 6;
       this.queue(chef, { t: 'wait', ms: 1200, pose: 'wave', dir: 'down' });
@@ -513,7 +513,7 @@ export class World {
 
   /** Pour la visite guidée sans mission : un agent par coin, assis à son bureau, qui travaille. */
   demoTeam(on: boolean) {
-    const demo: [string, Role, string][] = [['demo-1', 'recherche', 'Iris'], ['demo-2', 'recherche', 'Hugo'], ['demo-3', 'code', 'Ada'], ['demo-4', 'design', 'Frida'], ['demo-5', 'redaction', 'Colette'], ['demo-6', 'analyse', 'Marie']];
+    const demo: [string, Role, string][] = [['demo-1', 'analyse', 'Marie']];
     if (on) {
       for (const [id, role, name] of demo) {
         if (this.actors.has(id)) continue;

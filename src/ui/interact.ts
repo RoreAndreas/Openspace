@@ -64,6 +64,7 @@ export function interact(hit: Hit) {
     case 'clock': sfx('open'); useOffice.setState({ modal: { kind: 'clock' } }); return;
     case 'rack': sfx('open'); useOffice.setState({ modal: { kind: 'machine' } }); return;
     case 'printer': sfx('open'); useOffice.setState({ modal: { kind: 'files' } }); return;
+    case 'cabinet': sfx('open'); useOffice.setState({ modal: { kind: 'drawer' } }); return;
     case 'shelf': sfx('open'); useOffice.setState({ historyOpen: true }); return;
     case 'door': sfx('open'); useOffice.setState({ modal: { kind: 'team' } }); return;
     case 'neon': world.neonNext(); sfx('check'); return;

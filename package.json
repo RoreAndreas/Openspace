@@ -1,36 +1,36 @@
 {
-  "name": "bureau-des-agents",
+  "name": "openspace",
   "version": "0.1.0",
   "private": true,
-  "description": "Le Bureau des agents : tu dis ce que tu veux, et une équipe d'agents Claude Code se met au travail sous tes yeux, dans un bureau en pixel art. Gratuit et open source, par VibesMoney.",
+  "description": "L'open space : une équipe d'agents IA (Lilou, la cheffe, et un analyste) qui travaille sous tes yeux dans un bureau en pixel art, pour une responsable marketing et communication. Hébergé sur Cloudflare (Workers AI). D'après « Le Bureau des agents » de VibesMoney (MIT).",
   "license": "MIT",
-  "author": "VibesMoney (https://vibesmoney.com)",
-  "homepage": "https://github.com/devlikemasta/bureau-des-agents#readme",
+  "author": "RoreAndreas, d’après VibesMoney (https://vibesmoney.com)",
+  "homepage": "https://github.com/RoreAndreas/openspace#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/devlikemasta/bureau-des-agents.git"
+    "url": "git+https://github.com/RoreAndreas/openspace.git"
   },
   "bugs": {
-    "url": "https://github.com/devlikemasta/bureau-des-agents/issues"
+    "url": "https://github.com/RoreAndreas/openspace/issues"
   },
   "keywords": [
-    "claude-code",
     "agents",
     "ai-agents",
     "pixel-art",
-    "subagents",
-    "vibesmoney"
+    "cloudflare",
+    "workers-ai",
+    "marketing"
   ],
   "type": "module",
   "engines": {
-    "node": ">=22.18"
+    "node": ">=20"
   },
   "scripts": {
-    "start": "node scripts/check-node.mjs && vite build --logLevel warn && node server/index.ts --open",
-    "dev": "node scripts/dev.ts",
+    "dev": "vite",
     "build": "vite build",
-    "serve": "node server/index.ts",
-    "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.json"
+    "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p worker/tsconfig.json",
+    "preview": "vite build && wrangler dev",
+    "deploy": "vite build && wrangler deploy"
   },
   "dependencies": {
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
@@ -38,17 +38,15 @@
     "marked": "^18.1.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "ws": "^8.22.0",
     "zustand": "^5.0.15",
     "zzfx": "^1.4.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.1.2",
     "typescript": "^7.0.2",
-    "vite": "^8.3.4"
+    "vite": "^8.3.4",
+    "wrangler": "^4.152.0"
   }
 }

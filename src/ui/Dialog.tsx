@@ -1,4 +1,4 @@
-// En bas de l'écran, comme dans un jeu de rôle : Max te parle (son texte s'écrit lettre par lettre),
+// En bas de l'écran, comme dans un jeu de rôle : Lilou te parle (son texte s'écrit lettre par lettre),
 // et tu lui réponds : au clavier ou à la voix. C'est le seul endroit où taper : une demande, et l'équipe s'y met.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
@@ -6,26 +6,27 @@ import { ROLES } from '../../shared/activity.ts';
 import { sfx } from '../audio/sfx.ts';
 import { world } from '../engine/instance.ts';
 import { robotSprite } from '../engine/robots.ts';
+import { getCode } from '../local/api.ts';
 import { useOffice } from '../state/store.ts';
 import { tidy } from './tidy.ts';
 import { dictationHelp, useDictation } from './voice.ts';
 
 export const EXAMPLES: { label: string; prompt: string }[] = [
   {
-    label: '🔎 Analyse mes concurrents',
-    prompt: 'Analyse mes 5 principaux concurrents : pour chacun, son offre, ses prix et ce que ses clients en disent. Lance un chercheur par concurrent, puis rends-moi un tableau comparatif et 3 idées concrètes pour me démarquer.',
+    label: '📊 Veille concurrentielle',
+    prompt: 'Analyse 3 concurrents de ma marque : positionnement, offre et prix, communication sur les réseaux sociaux et avis clients. Rends-moi un rapport avec un tableau comparatif et 3 pistes pour nous démarquer.',
   },
   {
-    label: '📰 Ma veille IA',
-    prompt: 'Fais ma veille IA de la semaine : les 5 nouveautés qui comptent pour un entrepreneur (outils, annonces, usages), avec pour chacune une phrase sur ce que ça change pour moi et le lien de la source.',
+    label: '📣 Plan de communication',
+    prompt: 'Prépare un plan de communication sur 3 mois pour le lancement de notre nouvelle offre : objectifs, cibles, messages clés, canaux, calendrier et indicateurs de suivi.',
   },
   {
-    label: '🌐 Ma page de vente',
-    prompt: 'Crée la page de vente de mon offre : une page web moderne en un seul fichier, avec un titre fort, les bénéfices, une section témoignages à compléter et un bouton d’appel à l’action. Fais-la relire par un rédacteur.',
+    label: '📰 Tendances du mois',
+    prompt: 'Fais une veille des tendances marketing et communication du mois dans mon secteur : 5 tendances, avec pour chacune un exemple de marque, la source, et ce qu’on pourrait en faire.',
   },
   {
-    label: '✍️ 3 posts LinkedIn',
-    prompt: 'Écris-moi 3 posts LinkedIn sur mon activité, chacun avec une accroche différente, et prépare un visuel de citation en HTML pour le meilleur des trois.',
+    label: '🎯 Nos personas',
+    prompt: 'Construis 3 personas pour notre cible principale à partir de données publiques (études, statistiques) : besoins, freins, canaux préférés et le message qui leur parle.',
   },
 ];
 
@@ -33,7 +34,7 @@ const stripMd = (s: string) =>
   tidy(s).replace(/```[\s\S]*?```/g, ' ').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
     .replace(/[*_`#>]+/g, '').replace(/^\s*[-•]\s+/gm, '• ').replace(/\n{2,}/g, '\n').trim();
 
-/** Le texte de Max, qui s'écrit lettre par lettre, avec un petit « bip » (comme dans les vieux jeux). */
+/** Le texte de Lilou, qui s'écrit lettre par lettre, avec un petit « bip » (comme dans les vieux jeux). */
 function useTypewriter(text: string, cps = 55) {
   const [n, setN] = useState(0);
   const shown = useRef('');
@@ -55,7 +56,7 @@ function useTypewriter(text: string, cps = 55) {
   return { out, done: n >= text.length };
 }
 
-/** Le visage de Max, en grand, qui cligne des yeux (et sourit quand c'est fini). */
+/** Le visage de Lilou, en grand, qui cligne des yeux (et sourit quand c'est fini). */
 function Portrait({ happy }: { happy: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -79,7 +80,6 @@ function Portrait({ happy }: { happy: boolean }) {
 
 export function Dialog() {
   const connection = useOffice((s) => s.connection);
-  const claude = useOffice((s) => s.claude);
   const mission = useOffice((s) => s.mission);
   const busy = useOffice((s) => s.busySince !== null);
   const replaying = useOffice((s) => s.replaying);
@@ -89,9 +89,9 @@ export function Dialog() {
 
   let text: string;
   if (tour) text = tour.text;
-  else if (connection === 'offline') text = 'Je ne suis pas relié à Claude Code. Lance « npm start » dans le dossier du bureau, et on se met au travail.';
-  else if (claude && !claude.found) text = 'Je ne trouve pas Claude Code sur cet ordinateur. Installe-le (claude.com/claude-code), connecte-toi, puis relance le bureau.';
-  else if (!mission) text = 'Salut ! Moi, c’est Max, le chef du bureau. Dis-moi ce dont tu as besoin : je monte l’équipe, et on s’y met sous tes yeux.';
+  else if (connection === 'offline') text = 'Je n’arrive pas à joindre le serveur. Vérifie ta connexion, puis recharge la page.';
+  else if (!mission && !getCode()) text = 'Salut ! Moi, c’est Lilou, la cheffe de l’open space. Pour commencer, entre le code d’accès dans les réglages (⚙️ en haut à droite).';
+  else if (!mission) text = 'Salut ! Moi, c’est Lilou, la cheffe de l’open space. Dis-moi ce dont tu as besoin : je confie le travail à mon analyste, et tu le regardes faire.';
   else if (chef.typing) text = stripMd(chef.typing);
   else if (final && !busy) text = stripMd(final.text) || (final.ok ? 'C’est prêt !' : 'Mission arrêtée.');
   else if (chef.say) text = stripMd(chef.say);
@@ -106,7 +106,7 @@ export function Dialog() {
       <div className="dialog-box">
         <div className="dialog-face"><Portrait happy={!!final?.ok && !busy} /></div>
         <div className="dialog-main">
-          <div className="dialog-name">Max <span>chef de projet</span>{replaying && <em className="pill replay">Rediffusion</em>}</div>
+          <div className="dialog-name">Lilou <span>cheffe de projet</span>{replaying && <em className="pill replay">Rediffusion</em>}</div>
           <div className="dialog-text" ref={box}>{out}<span className="caret" /></div>
         </div>
       </div>
@@ -121,7 +121,7 @@ export function AskBar() {
   const send = useOffice((s) => s.send);
   const a = asks[0];
   if (!a) return null;
-  const who = a.who === 'chef' ? 'Max' : agents[a.who]?.name ?? 'Un agent';
+  const who = a.who === 'chef' ? 'Lilou' : agents[a.who]?.name ?? 'Un agent';
   const role = a.who === 'chef' ? 'chef' : agents[a.who]?.role ?? 'renfort';
   const answer = (allow: boolean) => { sfx(allow ? 'yes' : 'no'); send({ t: 'answer', requestId: a.requestId, allow }); };
   return (
@@ -162,8 +162,8 @@ function Composer() {
 
   const mode: 'new' | 'steer' | 'retouch' = !mission ? 'new' : busy ? 'steer' : 'retouch';
   const placeholder = mode === 'new'
-    ? 'Dis à Max ce que tu veux… (par exemple : analyse mes 5 concurrents)'
-    : mode === 'steer' ? 'Une précision pour Max ? Il la lira entre deux étapes.' : 'Demande une retouche à Max… ou lance une nouvelle mission.';
+    ? 'Dis à Lilou ce que tu veux… (par exemple : analyse 3 concurrents de ma marque)'
+    : mode === 'steer' ? 'Une précision pour Lilou ? Elle la lira entre deux étapes.' : 'Demande une retouche à Lilou… ou lance une nouvelle mission.';
 
   const submit = () => {
     const t = text.trim();
@@ -182,7 +182,7 @@ function Composer() {
           ref={area}
           value={text}
           rows={2}
-          placeholder={demo ? 'C’est une démo : la vraie version tourne sur ton ordinateur, avec Claude Code.' : replaying ? 'Rediffusion en cours…' : placeholder}
+          placeholder={demo ? 'C’est une rediffusion.' : replaying ? 'Rediffusion en cours…' : placeholder}
           disabled={replaying}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {

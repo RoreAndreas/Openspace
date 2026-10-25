@@ -326,6 +326,31 @@ function printerSprite(): Sprite {
   return { c, ox: 0, oy: -14, sort: 14 };
 }
 
+/** Le caisson à tiroirs de l'analyste : ses références (couleurs, types de texte, infos à retenir). */
+function cabinetSprite(): Sprite {
+  const c = makeCanvas(14, 26);
+  const g = g2d(c);
+  const gold = ROLES.analyse.color;
+  rect(g, 1, 4, 12, 21, '#6b5a4a');
+  hline(g, 1, 4, 12, '#8a7562');
+  vline(g, 12, 5, 20, '#4f4236');
+  // trois tiroirs, celui du haut entrouvert (on y voit des nuanciers et des fiches)
+  for (let i = 0; i < 3; i++) {
+    const y = 6 + i * 6;
+    rect(g, 2, y, 10, 5, i === 0 ? '#7d6a58' : '#75624f');
+    hline(g, 2, y + 4, 10, '#55473a');
+    rect(g, 6, y + 2, 2, 1, gold);
+  }
+  rect(g, 0, 1, 14, 5, '#8f7b67');
+  rect(g, 2, 0, 3, 3, '#ff6fa8');
+  rect(g, 5, 0, 3, 3, '#4fb3ff');
+  rect(g, 8, 0, 3, 3, gold);
+  hline(g, 1, 3, 12, '#f2efe8');
+  rect(g, 1, 25, 12, 1, '#3c3229');
+  outline(c, P.ink);
+  return { c, ox: 1, oy: -10, sort: 15 };
+}
+
 function coolerSprite(): Sprite {
   const c = makeCanvas(12, 30);
   const g = g2d(c);
@@ -524,6 +549,7 @@ export function furnitureSprite(f: Furn): Sprite {
     case 'easel': s = easelSprite(); break;
     case 'bin': s = binSprite(); break;
     case 'jukebox': s = jukeboxSprite(); break;
+    case 'cabinet': s = cabinetSprite(); break;
   }
   cache.set(key, s);
   return s;

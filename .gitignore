@@ -6,3 +6,7 @@ dist/
 .env.*
 .vscode/
 .idea/
+
+# Cloudflare
+.wrangler/
+.dev.vars

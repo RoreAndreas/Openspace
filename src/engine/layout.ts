@@ -1,5 +1,5 @@
 // Le plan du bureau : une grille de 22 × 16 cases de 16 pixels, vue de dessus (en 3/4, comme dans
-// les jeux en pixel art). Chaque métier a son coin, ses bureaux et ses chaises ; Max est au centre,
+// les jeux en pixel art). Chaque métier a son coin, ses bureaux et ses chaises ; Lilou est au centre,
 // devant le tableau du plan ; la porte est en bas, c'est par là qu'arrive l'équipe.
 import type { Role } from '../../shared/protocol.ts';
 
@@ -11,7 +11,7 @@ export const H = ROWS * T;
 
 export type FurnKind =
   | 'desk' | 'chefDesk' | 'chair' | 'chefChair' | 'plantBig' | 'plantTall' | 'plantSmall' | 'rack' | 'printer'
-  | 'cooler' | 'coffee' | 'sofa' | 'tableLow' | 'shelf' | 'lamp' | 'easel' | 'bin' | 'jukebox';
+  | 'cooler' | 'coffee' | 'sofa' | 'tableLow' | 'shelf' | 'lamp' | 'easel' | 'bin' | 'jukebox' | 'cabinet';
 
 export interface Furn {
   id: string;
@@ -46,7 +46,7 @@ export const ZONES: Zone[] = [
   { role: 'design', label: 'Studio design', x: 15, y: 6, w: 6, h: 3 },
   { role: 'redaction', label: 'Rédaction', x: 1, y: 10, w: 6, h: 3 },
   { role: 'analyse', label: 'Analyse', x: 15, y: 10, w: 4, h: 3 },
-  { role: 'chef', label: 'Max, chef de projet', x: 9, y: 6, w: 4, h: 3 },
+  { role: 'chef', label: 'Lilou, cheffe de projet', x: 9, y: 6, w: 4, h: 3 },
 ];
 
 const furn: Furn[] = [];
@@ -93,6 +93,8 @@ furn.push({ id: 'jukebox', kind: 'jukebox', tx: 14, ty: 14, w: 2, h: 1 });
 furn.push({ id: 'plant-coffee', kind: 'plantBig', tx: 19, ty: 14, w: 1, h: 1, seed: 21 });
 furn.push({ id: 'lamp-r', kind: 'lamp', tx: 20, ty: 14, w: 1, h: 1 });
 furn.push({ id: 'bin', kind: 'bin', tx: 7, ty: 12, w: 0, h: 0 });
+// le tiroir de l'analyste (ses références), juste à côté de son bureau
+furn.push({ id: 'cabinet', kind: 'cabinet', tx: 19, ty: 12, w: 1, h: 1, role: 'analyse' });
 
 export const FURNITURE = furn;
 export const SEATS = seats;
@@ -101,7 +103,7 @@ export const SEATS = seats;
 export const SPOTS = {
   door: [10, 15] as [number, number],
   doorOut: { x: 11 * T, y: 16 * T + 6 },
-  /** là où Max t'accueille, et où il te présente le rendu */
+  /** là où Lilou t'accueille, et où elle te présente le rendu */
   reception: [10, 12] as [number, number],
   receptionPx: { x: 11 * T, y: 12 * T + 13 },
   /** devant le tableau du plan */

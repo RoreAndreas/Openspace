@@ -1,5 +1,5 @@
 // Les robots du bureau : des cubes-robots, comme le logo de VibesMoney (visière noire, yeux orange).
-// Max, le chef, est le robot noir du logo ; l'équipe est blanche, avec la couleur de son métier
+// Lilou, le chef, est le robot noir du logo ; l'équipe est blanche, avec la couleur de son métier
 // et un accessoire (le béret du designer, les lunettes de l'analyste…). Tout est dessiné en code,
 // pose par pose, puis gardé en mémoire.
 import type { Role } from '../../shared/protocol.ts';

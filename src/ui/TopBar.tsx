@@ -27,7 +27,7 @@ function useTick(on: boolean) {
 
 const TOD_NEXT: Record<Tod, Tod> = { auto: 'day', day: 'evening', evening: 'night', night: 'auto' };
 const TOD_ICON: Record<Tod, string> = { auto: '🕒', day: '☀️', evening: '🌇', night: '🌙' };
-const TOD_LABEL: Record<Tod, string> = { auto: 'Heure de ton Mac', day: 'Jour', evening: 'Soir', night: 'Nuit' };
+const TOD_LABEL: Record<Tod, string> = { auto: 'Selon l’heure', day: 'Jour', evening: 'Soir', night: 'Nuit' };
 
 export function TopBar() {
   const mission = useOffice((s) => s.mission);
@@ -44,7 +44,6 @@ export function TopBar() {
   const filming = useOffice((s) => s.filming);
   const sound = useOffice((s) => s.sound);
   const tod = useOffice((s) => s.tod);
-  const musicOn = useOffice((s) => s.music.playing);
   useTick(busySince !== null);
   const elapsed = workMs + (busySince ? Date.now() - busySince : 0);
   const done = plan.filter((p) => p.status === 'completed').length;
@@ -64,8 +63,8 @@ export function TopBar() {
       <div className="brand">
         <Logo />
         <div>
-          <b>Le Bureau des agents</b>
-          <span>{connection === 'demo' ? 'Démo · VibesMoney' : 'par VibesMoney'}</span>
+          <b>L’open space</b>
+          <span>{connection === 'demo' ? 'Rediffusion' : 'Lilou et son analyste'}</span>
         </div>
       </div>
 
@@ -106,14 +105,15 @@ export function TopBar() {
             <span className="energy-bar"><i style={{ width: `${Math.max(3, 100 - quota.fiveHour * 100)}%` }} /></span>
           </span>
         )}
-        <button className="icon-btn" title="Visite guidée : Max présente son bureau (T)" onClick={() => void startTour()}>🎤</button>
+        <button className="icon-btn" title="Visite guidée : Lilou présente son bureau (T)" onClick={() => void startTour()}>🎤</button>
         <button className="icon-btn" title="Toute l’équipe : les métiers, leurs outils, l’historique" onClick={() => { sfx('open'); useOffice.setState({ modal: { kind: 'team' } }); }}>👥</button>
-        <button className={`icon-btn ${musicOn ? 'on' : ''}`} title="Le jukebox (J)" onClick={() => { sfx('open'); useOffice.setState({ modal: { kind: 'jukebox' } }); }}>{musicOn ? '🎶' : '🎵'}</button>
+        <button className="icon-btn" title="Le tiroir de l’analyste : couleurs, types de texte, infos à retenir" onClick={() => { sfx('open'); useOffice.setState({ modal: { kind: 'drawer' } }); }}>🗄️</button>
+        <button className="icon-btn" title="Les skills de l’équipe" onClick={() => { sfx('open'); useOffice.setState({ modal: { kind: 'skills' } }); }}>🎓</button>
         <button className="icon-btn" title="Missions précédentes (H)" onClick={() => { sfx('open'); useOffice.setState({ historyOpen: true }); }}>🗂️</button>
         <button className="icon-btn" title={`L’heure du bureau : ${TOD_LABEL[tod]} (N)`} onClick={() => { sfx('click'); const n = TOD_NEXT[tod]; useOffice.setState({ tod: n }); savePref('tod', n); }}>{TOD_ICON[tod]}</button>
         <button className="icon-btn" title={sound ? 'Couper le son (M)' : 'Remettre le son (M)'} onClick={() => toggle('sound')}>{sound ? '🔊' : '🔇'}</button>
         <button className={`icon-btn ${vertical ? 'on' : ''}`} title="Cadre vertical 9:16, pour filmer un reel (V)" onClick={() => toggle('vertical')}>📱</button>
-        <button className={`icon-btn ${filming ? 'on' : ''}`} title="Mode tournage : juste le bureau et Max (F)" onClick={() => toggle('filming')}>🎬</button>
+        <button className={`icon-btn ${filming ? 'on' : ''}`} title="Mode tournage : juste le bureau et Lilou (F)" onClick={() => toggle('filming')}>🎬</button>
         <button className="icon-btn" title="Réglages" onClick={() => { sfx('open'); useOffice.setState({ settingsOpen: true }); }}>⚙️</button>
       </div>
     </header>

@@ -1,57 +1,19 @@
-// La connexion au pont (le serveur local qui pilote Claude Code). Sans pont (site public, téléphone),
-// le bureau passe en démo : il rejoue une vraie mission enregistrée.
-import type { ClientMsg, Logged, MissionInfo, ServerMsg } from '../../shared/protocol.ts';
+// Le lien entre l'interface et le bureau. Dans l'open space, le bureau tourne dans le navigateur
+// (src/local/bureau.ts) et ne parle qu'au Worker Cloudflare : plus de serveur local.
+// On garde ici la rediffusion d'une mission enregistrée (pratique pour la revoir, ou la filmer).
+import type { Logged, MissionInfo } from '../../shared/protocol.ts';
+import { bureau } from '../local/bureau.ts';
 import { useOffice } from '../state/store.ts';
 
-let ws: WebSocket | null = null;
-let everConnected = false;
-let retry = 0;
 let player: { stop: () => void } | null = null;
 let lastReplay: { mission: MissionInfo; log: Logged[] } | null = null;
-let build = '';
-
-export function sendToBridge(m: ClientMsg) {
-  if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m));
-  else useOffice.getState().toast('error', 'Le bureau n’est pas relié à Claude Code : lance « npm start » dans le dossier du bureau.');
-}
 
 export function connect() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const socket = new WebSocket(`${proto}://${location.host}/ws`);
-  ws = socket;
-  const failTimer = setTimeout(() => { if (!everConnected) socket.close(); }, 2500);
-  socket.onopen = () => {
-    clearTimeout(failTimer);
-    everConnected = true;
-    retry = 0;
-    useOffice.setState({ connection: 'live', send: sendToBridge });
-  };
-  socket.onmessage = (e) => {
-    let m: ServerMsg;
-    try { m = JSON.parse(String(e.data)); } catch { return; }
-    if (m.t === 'replay') { playReplay(m.mission, m.log, 1); return; }
-    if (m.t === 'hello' && m.build && m.build !== 'dev') {
-      // le bureau a été mis à jour depuis l'ouverture de l'onglet : on recharge la page
-      if (build && build !== m.build) { location.reload(); return; }
-      build = m.build;
-    }
-    useOffice.getState().receive(m);
-  };
-  socket.onclose = () => {
-    clearTimeout(failTimer);
-    if (!everConnected) {
-      useOffice.setState({ connection: 'offline' });
-      void startDemo();
-      return;
-    }
-    useOffice.setState({ connection: 'connecting' });
-    setTimeout(connect, Math.min(8000, 600 * 2 ** retry++));
-  };
+  void bureau.init();
 }
 
 /**
  * Rejoue une mission enregistrée, avec son rythme d'origine (les longues pauses sont raccourcies).
- * Pratique pour filmer : la même mission, autant de fois qu'on veut, sans relancer l'équipe.
  */
 export function playReplay(mission: MissionInfo, log: Logged[], speed = 1, opts: { loop?: boolean; onEnd?: () => void } = {}) {
   player?.stop();
@@ -88,7 +50,7 @@ export function playReplay(mission: MissionInfo, log: Logged[], speed = 1, opts:
 /** Reprend la rediffusion depuis le début, à une autre vitesse. */
 export function replaySpeed(speed: number) {
   if (!lastReplay) return;
-  playReplay(lastReplay.mission, lastReplay.log, speed, { loop: useOffice.getState().connection === 'demo' });
+  playReplay(lastReplay.mission, lastReplay.log, speed);
 }
 
 /** Arrête la rediffusion et revient au bureau en direct. */
@@ -96,22 +58,8 @@ export function stopReplay() {
   player?.stop();
   player = null;
   useOffice.setState({ replaying: false });
-  if (ws?.readyState === WebSocket.OPEN) {
-    // on redemande l'état du bureau : le plus simple est de se reconnecter
-    ws.close();
-  } else useOffice.getState().resetMission(null);
-}
-
-/** Sans pont : la démo rejoue en boucle une vraie mission enregistrée. */
-async function startDemo() {
-  try {
-    const res = await fetch('/demo/mission.json');
-    if (!res.ok) return;
-    const data = (await res.json()) as { mission: MissionInfo; log: Logged[] };
-    useOffice.setState({
-      connection: 'demo',
-      send: () => useOffice.getState().toast('info', 'C’est une démo : installe le Bureau des agents pour lancer ta propre équipe.'),
-    });
-    playReplay(data.mission, data.log, 1, { loop: true });
-  } catch { /* pas de démo disponible */ }
+  const cur = bureau.current;
+  const st = useOffice.getState();
+  st.resetMission(cur ? cur.mission : null);
+  if (cur) for (const l of cur.log) st.apply(l.ev, l.at, false);
 }

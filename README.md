@@ -1,138 +1,87 @@
-# Le Bureau des agents
+# L'open space
 
-**Tu dis ce que tu veux. Une équipe d'agents IA se met au travail sous tes yeux.**
+**Tu dis ce que tu veux. Lilou, la cheffe de projet, confie le travail à son analyste, et tu le regardes faire.**
 
-Le Bureau des agents transforme Claude Code en petit jeu vidéo en pixel art. Max, le chef de projet, lit ta demande et appelle les bons
-spécialistes. Ils arrivent par la porte, s'installent à leur bureau, et chaque bulle montre ce qu'ils font vraiment, à cet instant.
-Ce ne sont pas des animations : chaque robot est un vrai agent Claude Code, qui travaille sur ton ordinateur, avec ton abonnement.
+Un bureau en pixel art où une petite équipe d'agents IA travaille pour une responsable marketing et communication :
 
-![L'équipe au travail : cinq chercheurs fouillent internet en même temps, Max attend leurs rapports](docs/bureau-en-mission.gif)
+- **Lilou**, la cheffe de projet, lit ta demande, écrit le plan, confie le travail et vérifie le rendu ;
+- **un analyste**, qui cherche sur internet, analyse et rédige les rapports.
 
-Gratuit, open source, et fait pour être amélioré par tout le monde.
+Chaque bulle montre ce que l'agent fait vraiment, à cet instant : une recherche, une page lue, un fichier écrit.
 
----
+> D'après [Le Bureau des agents](https://github.com/devlikemasta/bureau-des-agents) de [VibesMoney](https://vibesmoney.com) (licence MIT).
+> La version d'origine pilote Claude Code sur ton ordinateur. Celle-ci tourne entièrement sur **Cloudflare**, avec une IA gratuite.
 
-## L'installer en 2 minutes (sans savoir coder)
+## Ce qu'il y a dedans
 
-1. Il te faut [Claude Code](https://claude.com/claude-code), installé et connecté à ton compte.
-2. Ouvre Claude Code et colle cette phrase :
+- **Le tiroir de l'analyste** : clique sur le caisson à côté de son bureau, ou sur 🗄️. Il contient trois choses :
+  - **Couleurs** : la charte, en codes hexadécimaux ;
+  - **Types de texte** : les typographies, le ton, les formats attendus ;
+  - **À retenir** : ce que l'équipe doit garder en tête pour la suite. L'analyste peut y ranger lui-même une information importante.
 
-   ```
-   Installe et lance le Bureau des agents : https://github.com/devlikemasta/bureau-des-agents
-   ```
+  L'analyste et Lilou relisent le tiroir avant chaque mission.
+- **Les skills** (🎓) : des méthodes écrites, au format `SKILL.md`, le même que les skills de Claude.
+  - Deux sont installées d'office : `rapport-marketing` et `veille-concurrentielle`.
+  - On en ajoute d'autres depuis un fichier `.md`, un lien (par exemple un SKILL.md sur GitHub) ou un texte collé.
+- **Le règlement du bureau** (⚙️, puis 📜) : qui tu es, ton entreprise, comment travailler pour toi.
+- **Les rendus** : chaque rapport se lit dans le bureau ou se télécharge, avec l'historique de ses versions. Une mission entière se télécharge en `.zip`.
+- **Les missions précédentes** (touche `H`) : on peut les rejouer.
 
-3. Claude Code télécharge le bureau, l'installe et le lance. Le bureau s'ouvre dans ton navigateur, sur http://localhost:4848.
+## Tes données
 
-Les fois suivantes, dis simplement à Claude Code « Relance le Bureau des agents ».
+- **Le serveur ne garde rien.** Les missions, les rapports, le tiroir, les skills et le règlement restent dans le navigateur de la personne qui utilise le bureau.
+- **Ce que fait Cloudflare** : il relaie trois choses, l'IA, la recherche web et la lecture des pages.
+- **Dans les réglages**, on peut sauvegarder le règlement, le tiroir et les skills dans un fichier, les restaurer, ou tout effacer.
+- **Les 30 dernières missions** sont gardées.
 
-> **Pour Claude Code** (si on t'a donné ce lien) :
-> 1. Vérifie que Node.js 22.18 ou plus récent est installé (`node -v`). Sinon, propose à la personne de l'installer depuis https://nodejs.org (version LTS).
-> 2. `git clone https://github.com/devlikemasta/bureau-des-agents.git` dans le dossier de son choix (par défaut : son dossier personnel), puis `cd bureau-des-agents` et `npm install`.
-> 3. Lance `npm start` **en arrière-plan** : c'est un petit serveur qui doit rester allumé. Il ouvre le navigateur tout seul sur http://localhost:4848.
-> 4. Dis à la personne que le bureau est prêt, qu'il tourne tant que la commande tourne, et qu'elle peut écrire sa première mission à Max.
+## Le mettre en ligne sur Cloudflare (une seule fois, sans rien installer)
 
-### À la main, si tu préfères
+1. **Créer le projet.** Sur [dash.cloudflare.com](https://dash.cloudflare.com), va dans **Workers & Pages**, puis **Create**, puis **Import a repository**. Choisis le dépôt **openspace**.
+2. **Les réglages de construction** :
+   - *Build command* : `npm run build`
+   - *Deploy command* : `npx wrangler deploy` (la valeur proposée)
 
-```bash
-git clone https://github.com/devlikemasta/bureau-des-agents.git
-cd bureau-des-agents
-npm install
-npm start
-```
+   Lance le déploiement.
+3. **Le code d'accès.** Une fois le Worker créé, va dans **Settings**, puis **Variables and Secrets**, puis **Add** :
+   - *Type* : **Secret**
+   - *Name* : `ACCESS_CODE`
+   - *Value* : le code de ton choix, long et difficile à deviner.
+4. **Facultatif : une recherche web plus fiable.** Ajoute un deuxième secret `TAVILY_KEY`, avec une clé gratuite créée sur [tavily.com](https://tavily.com) (1 000 recherches par mois). Sans cette clé, la recherche passe par DuckDuckGo.
+5. **Ouvrir le bureau** à l'adresse du Worker (`https://openspace.<ton-compte>.workers.dev`). Clique sur ⚙️ et entre le code d'accès : le bureau est prêt.
 
-Il te faut [Node.js](https://nodejs.org) 22.18 ou plus récent. Pour arrêter le bureau : `Ctrl + C` dans le terminal.
+Ensuite, chaque modification poussée sur la branche `main` du dépôt est remise en ligne automatiquement.
 
-## Ta première mission
+### L'IA gratuite
 
-Écris à Max, au clavier ou à la voix (🎙️). Quelques idées :
-
-- « Je lance ma marque de café. Analyse 5 concurrents, un agent par concurrent, compare leurs prix et fais-moi le site de lancement. »
-- « Fais ma veille IA de la semaine : les 5 nouveautés qui comptent pour un entrepreneur. »
-- « Écris-moi 3 posts LinkedIn sur mon activité. »
-
-Avant la première mission, remplis **« Le règlement du bureau »** (bouton dans le panneau de droite) : qui tu es, ce que fait ton
-entreprise. Max le lit avant chaque mission, et l'équipe travaille pour toi, pas pour n'importe qui.
-
-![Le bureau en fin de journée](docs/bureau-soir.jpg)
-
-## Ce que tu peux faire dedans
-
-- **Cliquer sur tout.**
-  - Un robot : sa fiche, avec la mission que Max lui a donnée, chacune de ses actions et son rapport.
-  - Le tableau : le plan, qui fait quoi, et l'historique du plan.
-  - L'imprimante : les fichiers rendus par l'équipe. La bibliothèque : tes missions passées.
-  - Le serveur : Claude Code, le modèle, ton abonnement. L'horloge, la fenêtre (jour, soir, nuit)…
-- **Voir les sites créés par l'équipe dans un écran**, en version ordinateur ou téléphone, avec leur code et toutes leurs versions.
-- **Retrouver toute l'équipe** (👥) : les métiers, les outils Claude Code de chacun, et l'historique de tous les agents passés au bureau.
-- **Rejouer une mission** (`H`, puis « Rejouer ») : elle se remontre à l'identique, sans relancer l'équipe ni consommer ton abonnement.
-- **Mettre de la musique** au jukebox, écouter Max faire **la visite guidée** (`T`).
-- Et trouver les surprises : un chat, et un code secret bien connu des joueurs.
-
-![Le site créé par l'équipe, affiché dans le bureau](docs/apercu-site.jpg)
-
-### Filmer ton écran
-
-| Touche | Effet |
-|---|---|
-| `F` | Mode tournage : la caméra suit l'action toute seule. `F` ou `Échap` pour en sortir |
-| `V` | Cadre vertical 9:16, pour Instagram et TikTok |
-| `T` | Visite guidée, avec la voix de Max |
-| `C` | Caméra automatique : oui ou non |
-| `N` | Jour, soir, nuit |
-| `J` | Le jukebox |
-| `M` | Le son |
-| molette | Zoomer où tu veux (double-clic : plan large) |
-
-## Ce qui se passe sur ton ordinateur
-
-- **Tout reste chez toi.** Le bureau n'écoute que sur ton ordinateur (127.0.0.1), et aucun site web ne peut lancer ton équipe à ta place.
-- **Max est une vraie séance Claude Code**, lancée sans fenêtre dans le dossier de la mission (`~/Documents/Bureau des agents/Missions/`).
-  Son équipe, ce sont de vrais sous-agents Claude Code, chacun avec seulement les outils de son métier.
-- **L'équipe ne sort pas du dossier de la mission** (mode restreint de Claude Code) : ni tes réglages ni tes autres agents ne s'invitent.
-- **Les actions risquées te sont soumises** : pour une commande sensible, l'agent lève la main et tu réponds Oui ou Non.
-- **Les sites créés s'affichent dans un bac à sable** : ils ne peuvent ni lire le bureau, ni parler à Claude Code.
-- **Le bureau reste léger** : environ une milliseconde de dessin par image, rien quand l'onglet est caché.
-- **Ça consomme ton abonnement Claude**, comme si tu demandais le travail à Claude Code toi-même. Une mission de 7 agents a pris
-  2 à 3 % de la fenêtre de 5 heures d'un abonnement, lors de nos essais.
-
-Testé sur macOS. Sur Windows et Linux, ça devrait marcher : dis-nous si ce n'est pas le cas (onglet Issues).
-
-## L'améliorer avec nous
-
-Le Bureau des agents est fait pour grandir avec ses utilisateurs : une idée, un bug, un nouveau meuble, un nouveau métier, une traduction…
-Tout est expliqué, même si tu débutes, dans [CONTRIBUTING.md](CONTRIBUTING.md).
-
-Le plus simple : ouvre Claude Code dans le dossier du bureau et dis-lui ce que tu veux ajouter. Le fichier [CLAUDE.md](CLAUDE.md) lui
-explique comment le projet est fait.
+- **Workers AI** offre 10 000 « neurons » par jour, remis à zéro à minuit UTC. Ça représente quelques missions par jour avec Llama 3.3 70B, et davantage avec Llama 3.1 8B. Le modèle se choisit dans les réglages.
+- **Quand le quota est épuisé**, Lilou le dit, et l'équipe reprend le lendemain.
+- **Brancher Claude plus tard** demandera seulement de changer le moteur dans `worker/index.ts` (`/api/chat`). Le bureau, le tiroir et les skills ne bougent pas.
 
 ## Sous le capot
 
-- **`server/`** : un petit serveur Node. Il lance `claude -p` (JSON ligne par ligne), passe l'équipe avec `--agents`, travaille en
-  `--restricted`, et traduit chaque appel d'outil (`WebSearch`, `WebFetch`, `Write`, `Agent`…) en action dans le bureau.
-- **`src/engine/`** : le bureau en Canvas 2D, sur une image de 352 × 256 pixels. Tout le pixel art est dessiné en code, sans image externe.
-- **`src/ui/`** : l'interface (React) : la boîte de dialogue de Max, les fenêtres, le panneau de l'équipe.
+- **`worker/index.ts`** : le Worker Cloudflare. Il sert le bureau et expose `/api/chat`, `/api/search`, `/api/fetch` et `/api/ping`. Tout est protégé par le code d'accès et rien n'est stocké.
+- **`src/local/`** : l'équipe, dans le navigateur.
+  - `agent.ts` : la boucle de travail de Lilou et de l'analyste. L'IA répond par `{ say, action, input }`, le bureau exécute l'action et la montre.
+  - `bureau.ts` : les missions, les fichiers, l'enregistrement (IndexedDB).
+  - `drawer.ts` : le tiroir.
+  - `skills.ts` : les skills.
+- **`src/engine/`** : le bureau en pixel art (Canvas 2D, tout est dessiné en code). **`src/ui/`** : l'interface (React).
 
-Pour développer : `npm run dev` (http://localhost:5174, rechargement à chaud). `npm run check` vérifie les types.
+### Développer
+
+```bash
+npm install
+npm run dev          # le bureau sur http://localhost:5174
+npx wrangler dev     # dans un 2e terminal : le Worker (connexion Cloudflare nécessaire pour l'IA)
+npm run check        # les types
+```
+
+Pour `wrangler dev`, mets le code d'accès dans un fichier `.dev.vars` : `ACCESS_CODE=mon-code`. Ce fichier n'est jamais envoyé sur GitHub.
 
 ## Merci
 
-- **La musique** : des morceaux originaux composés pour le bureau avec [ElevenLabs Music](https://elevenlabs.io/music) et Google Lyria.
-- **La voix de Max** : « Léo », une voix de la bibliothèque [ElevenLabs](https://elevenlabs.io).
-- **Les bruitages** : [ZzFX](https://github.com/KilledByAPixel/ZzFX) (MIT). **Les polices** : Pixelify Sans et Plus Jakarta Sans (licence OFL).
-- **L'inspiration** : [Pixel Agents](https://github.com/pablodelucca/pixel-agents) et [claude-office](https://github.com/paulrobello/claude-office)
-  (MIT). Le code et les dessins du Bureau des agents sont écrits à neuf.
+- **Le Bureau des agents** de VibesMoney (MIT), d'où vient tout le bureau en pixel art.
+- **Les bruitages** : [ZzFX](https://github.com/KilledByAPixel/ZzFX) (MIT).
+- **Les polices** : Pixelify Sans et Plus Jakarta Sans (licence OFL).
 
-Licence MIT (voir [LICENSE](LICENSE)). Un projet [VibesMoney](https://vibesmoney.com) : on t'apprend à créer des agents IA qui travaillent pour toi.
-
----
-
-## In English
-
-**The Agents' Office** turns Claude Code into a pixel-art game. You give Max, the project lead, a task. He calls real Claude Code
-subagents (research, code, design, writing, analysis), each with only the tools of its trade. Every agent walks to its desk, shows what
-it is actually doing, and delivers its report; you read the results, even the websites they build, right inside the office.
-
-It runs locally with your own Claude Code subscription. Requirements: Node.js 22.18+ and Claude Code.
-Easiest install: open Claude Code and paste `Install and run the Agents' Office: https://github.com/devlikemasta/bureau-des-agents`.
-Manual install: `git clone`, `npm install`, `npm start`, then open http://localhost:4848. The interface is in French for now: an English
-translation is a great first contribution (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+Licence MIT (voir [LICENSE](LICENSE)).

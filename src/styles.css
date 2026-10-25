@@ -352,7 +352,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .chip { border: 1px solid var(--line2); background: var(--surface2); border-radius: 999px; padding: 6px 12px; font-size: 12.5px; font-weight: 600; text-align: left; }
 .chip:hover { border-color: rgba(255, 138, 61, 0.5); background: rgba(255, 138, 61, 0.08); }
 
-/* ── Max, en bas (boîte de dialogue de jeu de rôle) ── */
+/* ── Lilou, en bas (boîte de dialogue de jeu de rôle) ── */
 .dialog { padding: 10px 16px 14px; border-top: 1px solid var(--line); background: rgba(8, 8, 11, 0.92); display: grid; gap: 8px; }
 .dialog-box {
   display: flex;
@@ -624,3 +624,29 @@ select.versions { background: var(--surface2); color: var(--ink); border: 1px so
 .exit-filming button { border: 1px solid var(--line2); background: rgba(14, 14, 18, 0.92); backdrop-filter: blur(10px); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; font-weight: 600; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
 .exit-filming .quit { border-color: rgba(255, 138, 61, 0.5); color: var(--orange2); }
 @media (max-width: 760px) { .kv div { grid-template-columns: 1fr; } .who-row { grid-template-columns: auto auto 1fr; } .who-state { display: none; } }
+
+/* ── L'open space : le tiroir de l'analyste, les skills, le règlement, le code d'accès ── */
+input.text, textarea.area {
+  width: 100%; min-width: 0; background: var(--surface2); color: var(--ink); border: 1px solid var(--line2);
+  border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 13px;
+}
+input.text:focus, textarea.area:focus { outline: none; border-color: var(--orange); }
+textarea.area { resize: vertical; line-height: 1.5; }
+input[type='color'] { width: 34px; height: 34px; padding: 0; border: 1px solid var(--line2); border-radius: 8px; background: none; cursor: pointer; flex: none; }
+.drawer-list { display: grid; gap: 6px; margin: 10px 0; }
+.drawer-item { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--line); }
+.drawer-item code { font-size: 12px; color: var(--muted); }
+.drawer-item.text-ref input.label, .drawer-add input.label { flex: 0 0 34%; }
+.drawer-item.note > div { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.drawer-item.note span { overflow-wrap: anywhere; }
+.drawer-add { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+.skills { display: grid; gap: 8px; }
+.skill { padding: 10px 12px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--line); }
+.skill.off { opacity: 0.55; }
+.skill p { margin: 6px 0 0; }
+.skill-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.skill-head .row { margin-left: auto; }
+.skill-text { max-height: 260px; overflow: auto; margin-top: 8px; }
+.ok-text { color: var(--green); }
+.err-text { color: #ffb0b0; }
+.skill .pill { background: var(--surface3); color: var(--orange2); }

@@ -5,14 +5,8 @@ import { useOffice } from '../state/store.ts';
 
 export interface Track { id: string; title: string; mood: string; by: string; file: string }
 
-export const TRACKS: Track[] = [
-  { id: 'coucher-de-soleil', title: 'Coucher de soleil', mood: 'House progressive mélodique', by: 'ElevenLabs', file: '/music/coucher-de-soleil.mp3' },
-  { id: 'nuit-au-bureau', title: 'Nuit au bureau', mood: 'Techno mélodique', by: 'ElevenLabs', file: '/music/nuit-au-bureau.mp3' },
-  { id: 'afterwork', title: 'Afterwork', mood: 'House progressive solaire', by: 'ElevenLabs', file: '/music/afterwork.mp3' },
-  { id: 'golden-hour', title: 'Golden hour', mood: 'House progressive', by: 'Lyria', file: '/music/golden-hour.mp3' },
-  { id: 'minuit-pile', title: 'Minuit pile', mood: 'Techno mélodique', by: 'Lyria', file: '/music/minuit-pile.mp3' },
-  { id: 'vendredi-18h', title: 'Vendredi 18 h', mood: 'House solaire', by: 'Lyria', file: '/music/vendredi-18h.mp3' },
-];
+// Pas de musique dans l'open space (on allège le bureau) : la liste est vide, le jukebox ne joue rien.
+export const TRACKS: Track[] = [];
 
 class Jukebox {
   private audio: HTMLAudioElement | null = null;
@@ -67,6 +61,7 @@ class Jukebox {
   }
 
   play(index = this.index) {
+    if (!TRACKS.length) return;
     this.ensure();
     const a = this.audio!;
     if (index !== this.index || !a.src) {
@@ -96,7 +91,7 @@ class Jukebox {
     this.publish();
   }
 
-  /** La voix de Max passe devant la musique. */
+  /** La voix de la cheffe passe devant la musique. */
   duck(on: boolean) { this.ducked = on; this.applyVolume(); }
   setMuted(m: boolean) { this.muted = m; this.applyVolume(); }
 

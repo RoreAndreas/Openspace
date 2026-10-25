@@ -1,5 +1,6 @@
 // Les métiers du bureau, et la traduction en français de ce que fait vraiment chaque agent :
-// chaque outil de Claude Code devient une action (une icône, une animation, une bulle).
+// chaque outil devient une action (une icône, une animation, une bulle).
+// Pour l'instant, l'open space compte deux personnes : Lilou (la cheffe) et un analyste.
 import type { ActKind, MissionStats, OfficeEvent, Role } from './protocol.ts';
 
 export interface RoleInfo {
@@ -7,37 +8,40 @@ export interface RoleInfo {
   label: string;
   icon: string;
   color: string;
-  /** l'agent Claude Code (subagent_type) qui fait ce métier */
+  /** l'identifiant interne du métier */
   type: string;
   what: string;
 }
 
 export const ROLES: Record<Role, RoleInfo> = {
-  chef: { label: 'Chef de projet', icon: '⭐', color: '#FF8A3D', type: '', what: 'Il reçoit ta demande, fait le plan, répartit le travail et assemble le rendu.' },
+  chef: { label: 'Cheffe de projet', icon: '⭐', color: '#FF8A3D', type: '', what: 'Elle reçoit ta demande, fait le plan, confie le travail à l’analyste, vérifie et assemble le rendu.' },
   recherche: { label: 'Recherche', icon: '🔎', color: '#4FB3FF', type: 'chercheur', what: 'Cherche sur internet : concurrents, prix, avis, actualités, sources.' },
   code: { label: 'Code', icon: '💻', color: '#3DDC97', type: 'developpeur', what: 'Code, sites, scripts, automatisations : ce qui se lance et se teste.' },
   design: { label: 'Design', icon: '🎨', color: '#FF6FA8', type: 'designer', what: 'Pages web soignées, maquettes, visuels, mise en forme.' },
   redaction: { label: 'Rédaction', icon: '✍️', color: '#A98BFF', type: 'redacteur', what: 'Posts, e-mails, articles, scripts vidéo, rapports.' },
-  analyse: { label: 'Analyse', icon: '📊', color: '#FFC93D', type: 'analyste', what: 'Chiffres, tableaux, fichiers, comparatifs, calculs.' },
+  analyse: { label: 'Analyse', icon: '📊', color: '#FFC93D', type: 'analyste', what: 'Cherche sur internet, analyse et rédige tes rapports marketing et communication, en suivant les références de son tiroir.' },
   renfort: { label: 'Renfort', icon: '🤖', color: '#9AA3B5', type: '', what: 'Un coup de main sur une tâche à part.' },
 };
 
-/** Les outils Claude Code de chaque métier (le chef a tous ceux de la séance). */
+/** Les métiers présents dans l'open space (les autres coins restent vides pour l'instant). */
+export const ACTIVE_ROLES: Role[] = ['chef', 'analyse'];
+
+/** Les outils de chaque métier. */
 export const ROLE_TOOLS: Record<Role, string[]> = {
-  chef: ['Agent', 'TodoWrite', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'Bash'],
-  recherche: ['WebSearch', 'WebFetch', 'Read', 'Glob', 'Grep'],
-  code: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'WebFetch'],
-  design: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebFetch'],
-  redaction: ['Read', 'Write', 'Edit', 'Glob', 'Grep'],
-  analyse: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'],
+  chef: ['Plan', 'Analyste', 'Read', 'Write', 'Skill'],
+  recherche: [],
+  code: [],
+  design: [],
+  redaction: [],
+  analyse: ['WebSearch', 'WebFetch', 'Read', 'Write', 'Edit', 'Skill', 'Tiroir'],
   renfort: [],
 };
 
 /** Ce que veut dire chaque outil, en français (pour la fiche des métiers). */
 export const TOOL_INFO: Record<string, string> = {
-  Agent: 'appelle un membre de l’équipe', TodoWrite: 'écrit et coche le plan', Read: 'lit un fichier', Write: 'crée un fichier',
-  Edit: 'retouche un fichier', Glob: 'cherche des fichiers', Grep: 'cherche dans les fichiers', WebSearch: 'cherche sur internet',
-  WebFetch: 'lit une page web', Bash: 'lance une commande',
+  Plan: 'écrit et coche le plan', Analyste: 'confie une tâche à l’analyste', Read: 'lit un fichier', Write: 'crée un fichier',
+  Edit: 'retouche un fichier', WebSearch: 'cherche sur internet', WebFetch: 'lit une page web', Skill: 'applique un skill installé',
+  Tiroir: 'range une info à retenir dans son tiroir',
 };
 
 /** Le métier d'un agent, d'après le type d'agent que le chef a appelé. */
@@ -48,12 +52,12 @@ export function roleOfType(type: string): Role {
 
 /** Les prénoms des robots, par métier (jamais deux fois le même dans une mission). */
 export const NAMES: Record<Role, string[]> = {
-  chef: ['Max'],
+  chef: ['Lilou'],
   recherche: ['Iris', 'Hugo', 'Léa', 'Malo', 'Zoé', 'Noé', 'Inès', 'Tom', 'Jade', 'Sacha', 'Lou', 'Nils'],
   code: ['Ada', 'Linus', 'Grace', 'Alan', 'Margaret', 'Dennis'],
   design: ['Frida', 'Coco', 'Henri', 'Sonia', 'Saul'],
   redaction: ['Colette', 'Victor', 'Simone', 'Jules', 'George'],
-  analyse: ['Marie', 'Blaise', 'Émilie', 'Gaspard', 'Ada'],
+  analyse: ['Marie', 'Blaise', 'Émilie', 'Gaspard', 'Inès'],
   renfort: ['Bob', 'Lulu', 'Gaston', 'Nina', 'Momo', 'Kiki'],
 };
 
@@ -98,7 +102,8 @@ export function describeAct(tool: string, input: Record<string, unknown> | undef
       return { kind: 'bash', label: `Je lance ${c.length <= 34 ? `« ${c} »` : cut(i.description || c, 40)}`, detail: String(i.command ?? '') };
     }
     case 'TodoWrite': return { kind: 'plan', label: 'Je mets le plan à jour', detail: '' };
-    case 'Skill': return { kind: 'skill', label: `J’applique la méthode ${cut(i.skill ?? i.name, 24)}`, detail: String(i.args ?? '') };
+    case 'Skill': return { kind: 'skill', label: `J’applique le skill ${cut(i.skill ?? i.name, 24)}`, detail: String(i.args ?? '') };
+    case 'Tiroir': return { kind: 'write', label: 'Je range une note dans mon tiroir', detail: String(i.value ?? '') };
     case 'ToolSearch': return { kind: 'other', label: 'Je cherche le bon outil', detail: String(i.query ?? '') };
   }
   if (tool.startsWith('mcp__')) {
