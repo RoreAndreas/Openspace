@@ -8,7 +8,7 @@ import { sfx } from '../audio/sfx.ts';
 import { world } from '../engine/instance.ts';
 import { savePref, teamList, useOffice, type ActView, type Tod } from '../state/store.ts';
 import { useShallow } from 'zustand/react/shallow';
-import { fileIcon, fmtClock, fmtDate, fmtDuration, fmtSize, plural, readable } from './format.ts';
+import { fileIcon, fmtClock, fmtDate, fmtDuration, fmtSize, plural, readable, tilde } from './format.ts';
 import { party } from './interact.ts';
 import { mdToHtml } from './md.ts';
 import { Avatar } from './Panel.tsx';
@@ -69,7 +69,7 @@ function AgentRoom({ id }: { id: string }) {
         <div>
           <span className={`pill-status ${a.status}`}>{working ? (live?.seated ? 'Au travail' : 'En chemin') : a.status === 'done' ? 'A rendu son travail' : 'N’a pas pu finir'}</span>
           <p className="now">{working && a.act ? <><i>{ICON[a.act.kind]}</i>{a.act.label}</> : a.status === 'done' ? 'Son rapport est sur le bureau de Lilou.' : working ? 'Il s’installe à son poste…' : ''}</p>
-          <p className="small muted">Un vrai agent IA (Cloudflare Workers AI), avec seulement les outils de son métier : {ROLE_TOOLS[a.role].map((t) => TOOL_INFO[t] ?? t).join(', ')}.</p>
+          <p className="small muted">Un vrai agent IA, avec seulement les outils de son métier : {ROLE_TOOLS[a.role].filter((t) => t !== 'Tiroir' || useOffice.getState().engine === 'cloud').map((t) => TOOL_INFO[t] ?? t).join(', ')}.</p>
           {a.role === 'analyse' && <button className="btn small" onClick={() => { sfx('open'); useOffice.setState({ modal: { kind: 'drawer' } }); }}>🗄️ Ouvrir son tiroir</button>}
         </div>
       </div>
@@ -206,15 +206,24 @@ function ClockRoom() {
   );
 }
 
-// ── La machine (le serveur) : Cloudflare, le modèle, les données ──
+// ── La machine (le serveur) : le moteur, le modèle, les données ──
 function MachineRoom() {
   const claude = useOffice((s) => s.claude);
+  const engine = useOffice((s) => s.engine);
   const settings = useOffice((s) => s.settings);
   const mission = useOffice((s) => s.mission);
-  const rows: [string, React.ReactNode][] = [
-    ['Moteur', 'Cloudflare Workers AI (offre gratuite : 10 000 neurons par jour, remis à zéro à minuit UTC)'],
+  const dir = useOffice((s) => s.dir);
+  const local = engine === 'claude-code';
+  const rows: [string, React.ReactNode][] = local ? [
+    ['Moteur', claude?.found ? `Claude Code ${claude.version}, avec ton compte Claude` : 'Claude Code introuvable sur cet ordinateur'],
+    ['Cerveau de l’équipe', settings.model || 'le modèle par défaut de Claude Code'],
+    ['Permissions', settings.permission === 'auto' ? 'automatiques : l’agent lève la main pour les gestes risqués' : 'demandées avant chaque fichier'],
+    ['Dossier du bureau', dir ? tilde(dir) : '—'],
+    ['Règlement, tiroir, skills', 'dans ce navigateur, envoyés à l’équipe avec chaque demande'],
+  ] : [
+    ['Moteur', claude?.path ?? 'Cloudflare Workers AI'],
     ['Cerveau de l’équipe', mission?.model ?? claude?.version ?? settings.model],
-    ['Permissions', settings.permission === 'auto' ? 'automatiques : l’équipe écrit ses fichiers seule' : 'demandées avant chaque fichier'],
+    ['Quota', claude?.path?.startsWith('Claude') ? 'facturé à l’usage sur ton compte API Claude' : 'offre gratuite : 10 000 neurons par jour, remis à zéro à minuit UTC'],
     ['Recherche web', 'par le serveur Cloudflare (DuckDuckGo, ou Tavily si une clé est configurée)'],
     ['Tes données', 'dans ce navigateur uniquement : missions, fichiers, tiroir, skills. Le serveur ne garde rien.'],
   ];
@@ -223,8 +232,8 @@ function MachineRoom() {
       <dl className="kv">{rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
       <section className="room-sec">
         <h4>Comment ça marche</h4>
-        <p className="small">Lilou et l’analyste sont de vrais agents IA. À chaque étape, l’IA choisit une action (chercher sur internet, lire une page, écrire un fichier, confier une tâche…) ; le bureau l’exécute et la montre aussitôt : un robot qui tape, une bulle, un rapport posé sur le bureau de Lilou.</p>
-        <p className="small muted">Le serveur Cloudflare ne fait que relayer : l’IA, la recherche et la lecture des pages. Il est protégé par ton code d’accès et ne stocke rien.</p>
+        <p className="small">Lilou et l’analyste sont de vrais agents IA. À chaque étape, l’IA choisit une action (chercher sur internet, lire une page, écrire un fichier, confier une tâche…) ; le bureau la montre aussitôt : un robot qui tape, une bulle, un rapport posé sur le bureau de Lilou.</p>
+        <p className="small muted">{local ? 'Version locale : Lilou est une vraie séance Claude Code lancée dans le dossier de la mission, et l’analyste un vrai sous-agent Claude Code, avec ton compte Claude.' : 'Version en ligne : le serveur Cloudflare ne fait que relayer (l’IA gratuite, la recherche, la lecture des pages). Avec ta clé API Claude, les appels partent directement de ton navigateur chez Claude.'}</p>
         <p className="small muted">D’après « Le Bureau des agents » de VibesMoney (licence MIT).</p>
       </section>
       <div className="row"><button className="btn small" onClick={() => useOffice.setState({ modal: null, settingsOpen: true })}>⚙️ Réglages</button></div>
@@ -287,7 +296,7 @@ function TeamRoom({ role }: { role?: Role }) {
         <div className="roles">
           {roles.map((r) => (
             <div key={r} className={`role-card ${role === r ? 'focus' : ''}`} style={{ ['--c' as string]: ROLES[r].color }}>
-              <div className="role-head"><Avatar role={r} size={34} /><div><b>{ROLES[r].icon} {ROLES[r].label}</b><span>{r === 'chef' ? 'Lilou' : 'l’analyste'} · cerveau : {settings.model.split('/').pop()}</span></div>{working(r) > 0 && <em>{working(r)} au travail</em>}</div>
+              <div className="role-head"><Avatar role={r} size={34} /><div><b>{ROLES[r].icon} {ROLES[r].label}</b><span>{r === 'chef' ? 'Lilou' : 'l’analyste'} · cerveau : {settings.model ? settings.model.split('/').pop() : 'par défaut'}</span></div>{working(r) > 0 && <em>{working(r)} au travail</em>}</div>
               <p>{ROLES[r].what}</p>
               <div className="tools">{ROLE_TOOLS[r].map((t) => <span key={t} title={TOOL_INFO[t] ?? t}>{t}<small>{TOOL_INFO[t] ?? ''}</small></span>)}</div>
             </div>

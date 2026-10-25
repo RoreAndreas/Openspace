@@ -4,10 +4,22 @@ Un bureau en pixel art où l'on regarde une équipe d'agents IA travailler : Lil
 seul analyste (rôle `analyse`), pour une responsable marketing et communication. Hébergé sur Cloudflare.
 D'après « Le Bureau des agents » (VibesMoney, MIT).
 
+## Trois moteurs
+
+- **Version locale** (`npm start`, `server/`) : le pont Node lance Claude Code avec le compte Claude de l'utilisateur
+  (`claude -p`, stream-json, `--agents` : un seul `analyste`). Le navigateur le détecte (WebSocket `/ws` sur localhost)
+  et envoie `team` (règlement + tiroir + skills) avec chaque `start`/`say` ; les skills sont copiés dans `.skills/` de la
+  mission ; les lignes de `a-retenir.md` rejoignent le tiroir (`src/net/link.ts`).
+- **En ligne, IA gratuite** : Worker Cloudflare + Workers AI (`worker/index.ts`), équipe dans le navigateur (`src/local/`).
+- **En ligne, Claude** : clé API Claude de l'utilisatrice (« Se connecter à Claude »), appels directs du navigateur à
+  `api.anthropic.com` (`src/local/api.ts`, `claude`). Jamais d'identifiants d'abonnement Claude dans la version en ligne :
+  Anthropic ne l'autorise pas.
+
 ## Les commandes
 
+- `npm start` : version locale (vérifie Node, construit, lance `server/index.ts` sur http://localhost:4848).
 - `npm run dev` : le bureau avec Vite (http://localhost:5174) ; `/api` est relayé vers `npx wrangler dev` (port 8787).
-- `npm run check` : les types (client et Worker). `npm run build` : la construction. Les deux doivent passer.
+- `npm run check` : les types (client, Worker, serveur local). `npm run build` : la construction. Les deux doivent passer.
 - `npm run deploy` : construction + `wrangler deploy` (normalement fait par Cloudflare à chaque push sur `main`).
 
 ## Comment c'est fait
@@ -36,5 +48,5 @@ D'après « Le Bureau des agents » (VibesMoney, MIT).
 - **Sécurité** : jamais de secret dans le dépôt (`.dev.vars` est ignoré) ; les pages HTML créées par l'équipe s'affichent
   dans un iframe `sandbox` sans `allow-same-origin`.
 - **zustand** : un sélecteur qui renvoie un nouveau tableau ou objet passe par `useShallow`.
-- **Brancher Claude plus tard** : changer le moteur de `/api/chat` dans le Worker (même entrée : `messages`, même
-  sortie : `{ text }`). Le reste du bureau ne bouge pas.
+- **Serveur local** : Node ≥ 22.18 exécute le TypeScript directement ; dans `server/` et `shared/`, imports en `.ts` et
+  syntaxe effaçable seulement (pas d'`enum`, pas de `namespace`). Sous Windows, `findClaude` gère `claude.exe` et `claude.cmd`.

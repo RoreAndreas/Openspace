@@ -95,9 +95,12 @@ export interface Settings {
 export interface Quota { fiveHour: number; resetsAt: number | null }
 
 // ── Navigateur → serveur ──
+/** Ce que le navigateur envoie au serveur local avec chaque demande : règlement, tiroir, skills. */
+export interface TeamInput { context: string; skills: { name: string; content: string }[] }
+
 export type ClientMsg =
-  | { t: 'start'; prompt: string }
-  | { t: 'say'; text: string }
+  | { t: 'start'; prompt: string; team?: TeamInput }
+  | { t: 'say'; text: string; team?: TeamInput }
   | { t: 'stop' }
   | { t: 'answer'; requestId: string; allow: boolean }
   | { t: 'new' }

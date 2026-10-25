@@ -1,13 +1,26 @@
-// Les appels au Worker Cloudflare (/api/…), avec le code d'accès. C'est le seul trafic qui sort du navigateur.
+// Les appels qui sortent du navigateur :
+//   - au Worker Cloudflare (/api/…), avec le code d'accès : l'IA gratuite, la recherche web, la lecture des pages ;
+//   - à l'API Claude, directement, avec ta clé API Claude (si tu t'es connectée à Claude) : la clé ne passe
+//     jamais par le serveur.
 import { lsGet, lsSet } from './db.ts';
 
-export const MODELS: { id: string; label: string }[] = [
-  { id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', label: 'Llama 3.3 70B (recommandé : le plus fin)' },
-  { id: '@cf/meta/llama-3.1-8b-instruct', label: 'Llama 3.1 8B (plus rapide, consomme moins de quota)' },
+export interface ModelInfo { id: string; label: string; provider: 'cloudflare' | 'claude' }
+
+export const MODELS: ModelInfo[] = [
+  { id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', label: 'IA gratuite · Llama 3.3 70B (recommandé)', provider: 'cloudflare' },
+  { id: '@cf/meta/llama-3.1-8b-instruct', label: 'IA gratuite · Llama 3.1 8B (plus rapide, moins de quota)', provider: 'cloudflare' },
+  { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5 (ta clé API Claude)', provider: 'claude' },
+  { id: 'claude-haiku-5-5', label: 'Claude Haiku 5.5 (ta clé API Claude, économe)', provider: 'claude' },
 ];
+
+export const modelInfo = (id: string) => MODELS.find((m) => m.id === id);
 
 export const getCode = () => lsGet<string>('code', '');
 export const setCode = (c: string) => lsSet('code', c.trim());
+
+/** La clé API Claude (créée sur platform.claude.com). Elle reste dans ce navigateur. */
+export const getClaudeKey = () => lsGet<string>('claudeKey', '');
+export const setClaudeKey = (k: string) => lsSet('claudeKey', k.trim());
 
 export class ApiError extends Error {
   status: number;
@@ -37,6 +50,70 @@ export interface SearchHit { title: string; url: string; snippet: string }
 export interface Page { url: string; title: string; text: string; truncated: boolean }
 export interface ChatMsg { role: 'system' | 'user' | 'assistant'; content: string }
 export interface ChatOut { text: string; usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null; model: string }
+
+// ── L'API Claude, en direct depuis le navigateur ──
+const CLAUDE = 'https://api.anthropic.com/v1';
+
+function claudeHeaders(key = getClaudeKey()): HeadersInit {
+  return {
+    'Content-Type': 'application/json',
+    'x-api-key': key,
+    'anthropic-version': '2023-06-01',
+    // l'appel part du navigateur de l'utilisatrice, avec sa propre clé
+    'anthropic-dangerous-direct-browser-access': 'true',
+  };
+}
+
+async function claudeError(res: Response): Promise<ApiError> {
+  let msg = '';
+  try { msg = ((await res.json()) as { error?: { message?: string } }).error?.message ?? ''; } catch { /* vide */ }
+  if (res.status === 401 || res.status === 403) return new ApiError(res.status, 'Clé API Claude refusée : vérifie-la dans les réglages (« Se connecter à Claude »).');
+  if (res.status === 429) return new ApiError(429, 'Claude limite le débit pour l’instant : réessaie dans une minute.');
+  if (res.status === 529) return new ApiError(529, 'Claude est très demandé en ce moment : réessaie dans un instant.');
+  if (/credit|balance|billing/i.test(msg)) return new ApiError(res.status, 'Ton compte API Claude n’a plus de crédit : recharge-le sur platform.claude.com.');
+  return new ApiError(res.status, `Claude a répondu une erreur (${res.status})${msg ? ` : ${msg}` : ''}.`);
+}
+
+/** Regroupe les messages qui se suivent avec le même rôle (l'API Claude veut une alternance stricte). */
+function alternate(messages: ChatMsg[]) {
+  const out: { role: 'user' | 'assistant'; content: string }[] = [];
+  for (const m of messages) {
+    if (m.role === 'system') continue;
+    const last = out[out.length - 1];
+    if (last && last.role === m.role) last.content += '\n\n' + m.content;
+    else out.push({ role: m.role, content: m.content });
+  }
+  if (out[0]?.role !== 'user') out.unshift({ role: 'user', content: 'Commence.' });
+  return out;
+}
+
+export const claude = {
+  /** Vérifie la clé (la liste des modèles : rien n'est facturé). */
+  async check(key: string) {
+    let res: Response;
+    try { res = await fetch(`${CLAUDE}/models?limit=1`, { headers: claudeHeaders(key) }); } catch { throw new ApiError(0, 'Impossible de joindre Claude. Vérifie ta connexion.'); }
+    if (!res.ok) throw await claudeError(res);
+  },
+  async chat(model: string, messages: ChatMsg[], signal?: AbortSignal): Promise<ChatOut> {
+    if (!getClaudeKey()) throw new ApiError(401, 'Connecte-toi d’abord à Claude dans les réglages (« Se connecter à Claude »), ou choisis l’IA gratuite.');
+    const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+    let res: Response;
+    try {
+      res = await fetch(`${CLAUDE}/messages`, {
+        method: 'POST', headers: claudeHeaders(), signal,
+        body: JSON.stringify({ model, max_tokens: 4000, temperature: 0.3, system, messages: alternate(messages) }),
+      });
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      throw new ApiError(0, 'Impossible de joindre Claude. Vérifie ta connexion.');
+    }
+    if (!res.ok) throw await claudeError(res);
+    const d = (await res.json()) as { content?: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } };
+    const text = (d.content ?? []).filter((c) => c.type === 'text').map((c) => c.text ?? '').join('');
+    const total = (d.usage?.input_tokens ?? 0) + (d.usage?.output_tokens ?? 0);
+    return { text, usage: { total_tokens: total }, model };
+  },
+};
 
 export const api = {
   ping: () => call<{ ok: boolean; models: string[]; search: string }>('ping'),

@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { sfx } from '../audio/sfx.ts';
 import { savePref, useOffice } from '../state/store.ts';
-import { api, getCode, MODELS, setCode } from '../local/api.ts';
+import { api, claude, getClaudeKey, getCode, modelInfo, MODELS, setClaudeKey, setCode } from '../local/api.ts';
 import { dbClear, lsClear } from '../local/db.ts';
 import { download } from '../local/zip.ts';
 import { backupData, restoreData } from './Extras.tsx';
@@ -174,7 +174,55 @@ function AccessCode() {
   );
 }
 
+/** « Se connecter à Claude » (version Cloudflare) : ta clé API Claude, créée avec ton compte Claude. */
+function ClaudeLogin() {
+  const send = useOffice((s) => s.send);
+  const model = useOffice((s) => s.settings.model);
+  const [key, setKey] = useState('');
+  const [saved, setSaved] = useState(getClaudeKey());
+  const [state, setState] = useState<'idle' | 'checking' | string>('idle');
+  const connect = async () => {
+    setState('checking');
+    try {
+      await claude.check(key);
+      setClaudeKey(key);
+      setSaved(key.trim());
+      setKey('');
+      setState('idle');
+      sfx('check');
+      send({ t: 'settings', settings: { model: 'claude-sonnet-5-5' } });
+    } catch (e) { setState(e instanceof Error ? e.message : String(e)); }
+  };
+  const disconnect = () => {
+    setClaudeKey('');
+    setSaved('');
+    if (modelInfo(model)?.provider === 'claude') send({ t: 'settings', settings: { model: MODELS[0].id } });
+  };
+  return (
+    <div className="field claude-login">
+      <span>Claude</span>
+      {saved ? (
+        <div className="drawer-add">
+          <span className="ok-text">✓ Connectée à Claude (clé …{saved.slice(-4)})</span>
+          <button className="btn small ghost" onClick={disconnect}>Se déconnecter</button>
+        </div>
+      ) : (
+        <form className="drawer-add" onSubmit={(e) => { e.preventDefault(); void connect(); }}>
+          <input id="claude-key" className="text" type="password" autoComplete="off" placeholder="Ta clé API Claude (sk-ant-…)" value={key} onChange={(e) => { setKey(e.target.value); setState('idle'); }} />
+          <button className="btn small primary" type="submit" disabled={!key.trim() || state === 'checking'}>{state === 'checking' ? 'Vérification…' : 'Se connecter à Claude'}</button>
+        </form>
+      )}
+      {state !== 'idle' && state !== 'checking' && <small className="err-text">{state}</small>}
+      <small className="muted">Crée la clé avec ton compte Claude sur <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noreferrer">platform.claude.com</a>. L’usage est facturé à part, à l’usage (ton abonnement Pro ou Max ne peut pas servir ici). La clé reste dans ce navigateur et part directement chez Claude.</small>
+    </div>
+  );
+}
+
+const CLAUDE_CODE_MODELS: [string, string][] = [['sonnet', 'Sonnet (rapide, recommandé)'], ['opus', 'Opus (le plus fin)'], ['haiku', 'Haiku (éclair, économe)'], ['', 'Le modèle par défaut de Claude Code']];
+
 export function SettingsPanel() {
+  const engine = useOffice((s) => s.engine);
+  const claudeInfo = useOffice((s) => s.claude);
   const open = useOffice((s) => s.settingsOpen);
   const settings = useOffice((s) => s.settings);
   const send = useOffice((s) => s.send);
@@ -189,18 +237,43 @@ export function SettingsPanel() {
       <div className="modal settings" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head"><b>Réglages du bureau</b><button className="close" onClick={close} aria-label="Fermer">×</button></div>
         <div className="modal-body">
-          <AccessCode />
-          <label className="field">
-            <span>Le cerveau de l’équipe (Cloudflare Workers AI)</span>
-            <select id="model" value={settings.model} onChange={(e) => send({ t: 'settings', settings: { model: e.target.value } })}>
-              {MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-            </select>
-          </label>
-          <div className="field">
-            <span>Les permissions</span>
-            <label className="radio"><input type="radio" checked={settings.permission === 'auto'} onChange={() => send({ t: 'settings', settings: { permission: 'auto' } })} /> L’équipe écrit ses fichiers seule</label>
-            <label className="radio"><input type="radio" checked={settings.permission === 'ask'} onChange={() => send({ t: 'settings', settings: { permission: 'ask' } })} /> Elle demande avant chaque fichier</label>
-          </div>
+          {engine === 'claude-code' ? (
+            <>
+              <div className="field">
+                <span>Ton compte Claude (Claude Code sur cet ordinateur)</span>
+                {claudeInfo?.found
+                  ? <small className="ok-text">✓ Claude Code {claudeInfo.version} : l’équipe travaille avec ton compte Claude.</small>
+                  : <small className="err-text">Claude Code n’est pas trouvé. Installe-le (claude.com/claude-code), lance « claude » une fois pour te connecter à ton compte, puis relance « npm start ».</small>}
+              </div>
+              <label className="field">
+                <span>Le cerveau de l’équipe</span>
+                <select id="model" value={settings.model} onChange={(e) => send({ t: 'settings', settings: { model: e.target.value } })}>
+                  {CLAUDE_CODE_MODELS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </label>
+              <div className="field">
+                <span>Les permissions</span>
+                <label className="radio"><input type="radio" checked={settings.permission === 'auto'} onChange={() => send({ t: 'settings', settings: { permission: 'auto' } })} /> L’équipe décide seule, et lève la main pour les gestes risqués</label>
+                <label className="radio"><input type="radio" checked={settings.permission === 'ask'} onChange={() => send({ t: 'settings', settings: { permission: 'ask' } })} /> Elle demande avant chaque fichier</label>
+              </div>
+            </>
+          ) : (
+            <>
+              <AccessCode />
+              <ClaudeLogin />
+              <label className="field">
+                <span>Le cerveau de l’équipe</span>
+                <select id="model" value={settings.model} onChange={(e) => send({ t: 'settings', settings: { model: e.target.value } })}>
+                  {MODELS.map((m) => <option key={m.id} value={m.id} disabled={m.provider === 'claude' && !getClaudeKey()}>{m.label}{m.provider === 'claude' && !getClaudeKey() ? ' : connecte-toi d’abord' : ''}</option>)}
+                </select>
+              </label>
+              <div className="field">
+                <span>Les permissions</span>
+                <label className="radio"><input type="radio" checked={settings.permission === 'auto'} onChange={() => send({ t: 'settings', settings: { permission: 'auto' } })} /> L’équipe écrit ses fichiers seule</label>
+                <label className="radio"><input type="radio" checked={settings.permission === 'ask'} onChange={() => send({ t: 'settings', settings: { permission: 'ask' } })} /> Elle demande avant chaque fichier</label>
+              </div>
+            </>
+          )}
           <div className="field">
             <span>L’équipe</span>
             <div className="row">
@@ -210,7 +283,7 @@ export function SettingsPanel() {
             </div>
           </div>
           <div className="field">
-            <span>Tes données (elles ne quittent pas ce navigateur)</span>
+            <span>{engine === 'claude-code' ? 'Tes réglages d’équipe (règlement, tiroir, skills : dans ce navigateur)' : 'Tes données (elles ne quittent pas ce navigateur)'}</span>
             <div className="row">
               <button className="btn small" onClick={() => download(`openspace-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(backupData(), null, 2), 'application/json')}>💾 Sauvegarder règlement, tiroir et skills</button>
               <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={async (e) => {

@@ -6,7 +6,7 @@ import { countStats, emptyStats, NAMES } from '../../shared/activity.ts';
 import type { ClientMsg, FileInfo, Logged, MissionInfo, OfficeEvent, ServerMsg, Settings, TeamEntry, VersionInfo } from '../../shared/protocol.ts';
 import { useOffice } from '../state/store.ts';
 import { runChef, errorText, type MissionFiles, type TeamCtx } from './agent.ts';
-import { api, ApiError, getCode, MODELS, type ChatMsg } from './api.ts';
+import { api, ApiError, claude, getClaudeKey, getCode, modelInfo, MODELS, type ChatMsg } from './api.ts';
 import { dbDel, dbGet, dbSet, lsGet, lsSet } from './db.ts';
 import { download, zip } from './zip.ts';
 
@@ -67,11 +67,12 @@ class LocalBureau {
     if (!MODELS.some((m) => m.id === this.settings.model)) this.settings.model = DEFAULT_SETTINGS.model;
     const list = await dbGet<MissionInfo[]>('missions');
     this.missions = Array.isArray(list) ? list.map((m) => (m.status === 'working' ? { ...m, status: 'stopped' as const } : m)) : [];
-    useOffice.setState({ connection: 'live', send: (m: ClientMsg) => { void this.handle(m).catch((e) => useOffice.getState().toast('error', errorText(e))); } });
-    this.out({ t: 'hello', claude: { found: true, version: this.modelLabel(), path: 'Cloudflare Workers AI' }, dir: 'ce navigateur', settings: this.settings, quota: null, missions: this.list(), current: null });
+    useOffice.setState({ connection: 'live', engine: 'cloud', send: (m: ClientMsg) => { void this.handle(m).catch((e) => useOffice.getState().toast('error', errorText(e))); } });
+    this.out({ t: 'hello', claude: { found: true, version: this.modelLabel(), path: this.engineLabel() }, dir: 'ce navigateur', settings: this.settings, quota: null, missions: this.list(), current: null });
   }
 
-  modelLabel() { return MODELS.find((m) => m.id === this.settings.model)?.label.split(' (')[0] ?? this.settings.model; }
+  modelLabel() { return MODELS.find((m) => m.id === this.settings.model)?.label.split(' (')[0].replace('IA gratuite · ', '') ?? this.settings.model; }
+  engineLabel() { return modelInfo(this.settings.model)?.provider === 'claude' ? 'Claude (ta clé API)' : 'Cloudflare Workers AI'; }
   list() { return [...this.missions].sort((a, b) => b.createdAt - a.createdAt); }
   rules() { return lsGet<string>('rules', '').replace(/\(par exemple[^)]*\)/g, '').trim(); }
 
@@ -107,7 +108,7 @@ class LocalBureau {
         };
         lsSet('settings', this.settings);
         this.out({ t: 'settings', settings: this.settings });
-        this.out({ t: 'hello', claude: { found: true, version: this.modelLabel(), path: 'Cloudflare Workers AI' }, dir: 'ce navigateur', settings: this.settings, quota: null, missions: this.list(), current: this.current ? { mission: this.current.mission, log: this.current.log } : null });
+        this.out({ t: 'hello', claude: { found: true, version: this.modelLabel(), path: this.engineLabel() }, dir: 'ce navigateur', settings: this.settings, quota: null, missions: this.list(), current: this.current ? { mission: this.current.mission, log: this.current.log } : null });
         return;
       }
     }
@@ -118,6 +119,7 @@ class LocalBureau {
     const text = prompt.trim();
     if (!text) throw new Error('Dis à Lilou ce que tu veux.');
     if (!getCode()) { useOffice.setState({ settingsOpen: true }); throw new Error('Entre d’abord le code d’accès dans les réglages.'); }
+    if (modelInfo(this.settings.model)?.provider === 'claude' && !getClaudeKey()) { useOffice.setState({ settingsOpen: true }); throw new Error('Connecte-toi d’abord à Claude dans les réglages, ou choisis l’IA gratuite.'); }
     if (this.current?.mission.status === 'working') throw new Error('L’équipe est déjà sur une mission. Attends qu’elle la rende, ou arrête-la.');
     if (this.current) this.close();
     const mission: MissionInfo = {
@@ -152,7 +154,7 @@ class LocalBureau {
     cur.busySince = Date.now();
     if (m.status !== 'working') { m.status = 'working'; m.endedAt = undefined; this.out({ t: 'mission', mission: m }); }
     this.record(cur, { k: 'start', text });
-    this.record(cur, { k: 'init', model: this.modelLabel(), auth: 'Cloudflare Workers AI' });
+    this.record(cur, { k: 'init', model: this.modelLabel(), auth: this.engineLabel() });
     const ctx: TeamCtx = {
       emit: (ev) => { if (this.current === cur && !ctrl.signal.aborted) this.record(cur, ev); },
       signal: ctrl.signal,
@@ -173,7 +175,9 @@ class LocalBureau {
         return name;
       },
       takeNotes: () => cur.notes.splice(0),
-      chat: (messages, json) => api.chat(this.settings.model, messages, ctrl.signal, json),
+      chat: (messages, json) => (modelInfo(this.settings.model)?.provider === 'claude'
+        ? claude.chat(this.settings.model, messages, ctrl.signal)
+        : api.chat(this.settings.model, messages, ctrl.signal, json)),
     };
     const t0 = Date.now();
     try {

@@ -65,6 +65,8 @@ export type Modal =
 
 interface S {
   connection: 'connecting' | 'live' | 'offline' | 'demo';
+  /** le moteur : Claude Code sur ton ordinateur (ton compte Claude), ou le bureau dans le navigateur (Cloudflare) */
+  engine: 'cloud' | 'claude-code';
   claude: ClaudeInfo | null;
   dir: string;
   settings: Settings;
@@ -133,6 +135,7 @@ const MAX_FEED = 160;
 
 export const useOffice = create<S>((set, get) => ({
   connection: 'connecting',
+  engine: 'cloud',
   claude: null,
   dir: '',
   settings: { model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', permission: 'auto' },

@@ -1,15 +1,82 @@
-// Le lien entre l'interface et le bureau. Dans l'open space, le bureau tourne dans le navigateur
-// (src/local/bureau.ts) et ne parle qu'au Worker Cloudflare : plus de serveur local.
-// On garde ici la rediffusion d'une mission enregistrée (pratique pour la revoir, ou la filmer).
-import type { Logged, MissionInfo } from '../../shared/protocol.ts';
+// Le lien entre l'interface et le moteur de l'équipe. Deux cas :
+//   - sur ton ordinateur (npm start) : le pont local pilote Claude Code, avec ton compte Claude (WebSocket /ws) ;
+//   - sur Cloudflare : le bureau tourne dans le navigateur (src/local/bureau.ts), avec l'IA gratuite de
+//     Cloudflare ou ta clé API Claude.
+// On garde aussi ici la rediffusion d'une mission enregistrée.
+import type { ClientMsg, Logged, MissionInfo, ServerMsg } from '../../shared/protocol.ts';
 import { bureau } from '../local/bureau.ts';
+import { teamInput } from '../local/context.ts';
+import { useDrawer } from '../local/drawer.ts';
 import { useOffice } from '../state/store.ts';
 
+let ws: WebSocket | null = null;
+let everConnected = false;
+let retry = 0;
+let build = '';
 let player: { stop: () => void } | null = null;
 let lastReplay: { mission: MissionInfo; log: Logged[] } | null = null;
+/** le fichier où l'analyste (version locale) range ce qu'il faut retenir : il rejoint le tiroir */
+const NOTES_FILE = 'a-retenir.md';
+
+const isLocalHost = () => ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+
+/** Envoi au pont local : le règlement, le tiroir et les skills partent avec chaque demande. */
+function sendToBridge(m: ClientMsg) {
+  if (m.t === 'open_root' && m.rules) { useOffice.setState({ modal: { kind: 'rules' } }); return; }
+  if (m.t === 'open_root') { useOffice.setState({ modal: { kind: 'drawer' } }); return; }
+  const msg: ClientMsg = m.t === 'start' || m.t === 'say' ? { ...m, team: teamInput() } : m;
+  if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+  else useOffice.getState().toast('error', 'Le bureau n’est plus relié à Claude Code : relance « npm start » sur ton ordinateur.');
+}
+
+/** Ce qu'on demande avant que le moteur soit prêt : gardé, puis envoyé dès qu'il l'est. */
+let waiting: ClientMsg[] = [];
+const flush = () => { const send = useOffice.getState().send; const list = waiting; waiting = []; for (const m of list) send(m); };
+const startBrowser = () => { void bureau.init().then(flush); };
 
 export function connect() {
-  void bureau.init();
+  if (!everConnected) useOffice.setState({ send: (m: ClientMsg) => { waiting.push(m); } });
+  // sur Cloudflare (ou toute autre adresse), pas de pont local : le bureau tourne dans le navigateur
+  if (!isLocalHost()) { startBrowser(); return; }
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const socket = new WebSocket(`${proto}://${location.host}/ws`);
+  ws = socket;
+  const failTimer = setTimeout(() => { if (!everConnected) socket.close(); }, 1500);
+  socket.onopen = () => {
+    clearTimeout(failTimer);
+    everConnected = true;
+    retry = 0;
+    useOffice.setState({ connection: 'live', engine: 'claude-code', send: sendToBridge });
+    flush();
+  };
+  socket.onmessage = (e) => {
+    let m: ServerMsg;
+    try { m = JSON.parse(String(e.data)); } catch { return; }
+    if (m.t === 'replay') { playReplay(m.mission, m.log, 1); return; }
+    if (m.t === 'hello' && m.build && m.build !== 'dev') {
+      // le bureau a été mis à jour depuis l'ouverture de l'onglet : on recharge la page
+      if (build && build !== m.build) { location.reload(); return; }
+      build = m.build;
+    }
+    // ce que l'analyste a rangé dans a-retenir.md rejoint son tiroir
+    if (m.t === 'ev' && m.ev.k === 'file' && m.ev.file.name === NOTES_FILE) sendToBridge({ t: 'read', missionId: m.missionId, file: m.ev.file.path });
+    if (m.t === 'file_text' && m.file.endsWith(NOTES_FILE) && !useOffice.getState().viewer) {
+      const title = useOffice.getState().mission?.title;
+      for (const line of m.text.split('\n')) {
+        const t = line.replace(/^\s*[-*•]\s*/, '').trim();
+        if (t && !t.startsWith('#')) useDrawer.getState().addNote(t, 'analyste', title);
+      }
+      return;
+    }
+    useOffice.getState().receive(m);
+  };
+  socket.onclose = () => {
+    clearTimeout(failTimer);
+    // pas de pont local (npm run dev sans serveur, ou wrangler dev) : le bureau tourne dans le navigateur
+    if (!everConnected) { startBrowser(); return; }
+    useOffice.setState({ connection: 'connecting' });
+    setTimeout(connect, Math.min(8000, 600 * 2 ** retry++));
+  };
 }
 
 /**
@@ -58,6 +125,7 @@ export function stopReplay() {
   player?.stop();
   player = null;
   useOffice.setState({ replaying: false });
+  if (ws?.readyState === WebSocket.OPEN) { ws.close(); return; } // le pont renvoie l'état du bureau à la reconnexion
   const cur = bureau.current;
   const st = useOffice.getState();
   st.resetMission(cur ? cur.mission : null);

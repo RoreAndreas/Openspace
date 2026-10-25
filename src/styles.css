@@ -650,3 +650,4 @@ input[type='color'] { width: 34px; height: 34px; padding: 0; border: 1px solid v
 .ok-text { color: var(--green); }
 .err-text { color: #ffb0b0; }
 .skill .pill { background: var(--surface3); color: var(--orange2); }
+.claude-login a { color: var(--orange2); }

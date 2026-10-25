@@ -10,7 +10,19 @@ Un bureau en pixel art où une petite équipe d'agents IA travaille pour une res
 Chaque bulle montre ce que l'agent fait vraiment, à cet instant : une recherche, une page lue, un fichier écrit.
 
 > D'après [Le Bureau des agents](https://github.com/devlikemasta/bureau-des-agents) de [VibesMoney](https://vibesmoney.com) (licence MIT).
-> La version d'origine pilote Claude Code sur ton ordinateur. Celle-ci tourne entièrement sur **Cloudflare**, avec une IA gratuite.
+
+## Trois façons de faire travailler l'équipe
+
+| | Où | Le cerveau | Ce que ça coûte |
+|---|---|---|---|
+| **En ligne, IA gratuite** | Cloudflare (une adresse web) | Workers AI (Llama) | Gratuit, dans la limite du quota quotidien |
+| **En ligne, avec Claude** | Cloudflare | Claude, avec **ta clé API Claude** (« Se connecter à Claude » dans les réglages) | Facturé à l'usage sur ton compte API Claude |
+| **Sur ton ordinateur, avec ton compte Claude** | Ton PC (`npm start`) | Claude Code, connecté à **ton abonnement Claude** | Ton abonnement Pro ou Max |
+
+Pourquoi l'abonnement Claude ne sert que sur ton ordinateur : Anthropic n'autorise pas une application en ligne à
+utiliser la connexion d'un compte Pro ou Max. En ligne, on passe donc par une clé API, créée avec ton compte Claude sur
+[platform.claude.com](https://platform.claude.com). Sur ton ordinateur, c'est Claude Code lui-même qui travaille, avec
+ton compte : c'est prévu et autorisé.
 
 ## Ce qu'il y a dedans
 
@@ -51,14 +63,43 @@ Chaque bulle montre ce que l'agent fait vraiment, à cet instant : une recherche
 
 Ensuite, chaque modification poussée sur la branche `main` du dépôt est remise en ligne automatiquement.
 
+### Se connecter à Claude (en ligne)
+
+1. Avec ton compte Claude, va sur [platform.claude.com](https://platform.claude.com), puis **API Keys**, puis **Create Key**. Ajoute un peu de crédit si ton compte API n'en a pas.
+2. Dans le bureau : ⚙️, puis **Se connecter à Claude**, puis colle la clé.
+
+La clé est vérifiée, reste dans ce navigateur et part directement chez Claude : elle ne passe jamais par Cloudflare. Le cerveau de l'équipe passe sur Claude Sonnet ; on peut revenir à l'IA gratuite à tout moment.
+
 ### L'IA gratuite
 
 - **Workers AI** offre 10 000 « neurons » par jour, remis à zéro à minuit UTC. Ça représente quelques missions par jour avec Llama 3.3 70B, et davantage avec Llama 3.1 8B. Le modèle se choisit dans les réglages.
 - **Quand le quota est épuisé**, Lilou le dit, et l'équipe reprend le lendemain.
-- **Brancher Claude plus tard** demandera seulement de changer le moteur dans `worker/index.ts` (`/api/chat`). Le bureau, le tiroir et les skills ne bougent pas.
+
+## Sur ton ordinateur, avec ton compte Claude
+
+Il te faut :
+- [Node.js](https://nodejs.org) 22.18 ou plus récent (version LTS) ;
+- [Claude Code](https://claude.com/claude-code), connecté à ton compte : lance `claude` une fois et connecte-toi.
+
+```bash
+git clone https://github.com/RoreAndreas/openspace.git
+cd openspace
+npm install
+npm start
+```
+
+Le bureau s'ouvre sur http://localhost:4848. Il reconnaît Claude Code tout seul, et les réglages affichent « l'équipe travaille avec ton compte Claude ».
+
+- **Où vont les fichiers** : dans `Documents/Open space/Missions`, un dossier par mission.
+- **Lilou** est une vraie séance Claude Code, et l'analyste un vrai sous-agent Claude Code, avec seulement ses outils.
+- **Le règlement, le tiroir et les skills** partent avec chaque demande. Les skills sont copiés dans le dossier caché `.skills` de la mission.
+- **Ce que l'analyste retient** : il l'écrit dans `a-retenir.md`, et ces lignes rejoignent son tiroir.
+
+Tu peux aussi demander à Claude Code : « Installe et lance l'open space : https://github.com/RoreAndreas/openspace ».
 
 ## Sous le capot
 
+- **`server/`** : la version locale (Node). Le pont lance Claude Code (`claude -p`, en JSON ligne par ligne) dans le dossier de la mission et traduit ce qu'il fait en événements du bureau. Il marche aussi sous Windows.
 - **`worker/index.ts`** : le Worker Cloudflare. Il sert le bureau et expose `/api/chat`, `/api/search`, `/api/fetch` et `/api/ping`. Tout est protégé par le code d'accès et rien n'est stocké.
 - **`src/local/`** : l'équipe, dans le navigateur.
   - `agent.ts` : la boucle de travail de Lilou et de l'analyste. L'IA répond par `{ say, action, input }`, le bureau exécute l'action et la montre.
@@ -71,9 +112,9 @@ Ensuite, chaque modification poussée sur la branche `main` du dépôt est remis
 
 ```bash
 npm install
-npm run dev          # le bureau sur http://localhost:5174
-npx wrangler dev     # dans un 2e terminal : le Worker (connexion Cloudflare nécessaire pour l'IA)
-npm run check        # les types
+npm start            # version locale, avec Claude Code (http://localhost:4848)
+npm run dev          # le bureau seul sur http://localhost:5174 ; /api va vers « npx wrangler dev » (2e terminal)
+npm run check        # les types (client, Worker, serveur local)
 ```
 
 Pour `wrangler dev`, mets le code d'accès dans un fichier `.dev.vars` : `ACCESS_CODE=mon-code`. Ce fichier n'est jamais envoyé sur GitHub.

@@ -81,6 +81,8 @@ function Portrait({ happy }: { happy: boolean }) {
 export function Dialog() {
   const connection = useOffice((s) => s.connection);
   const mission = useOffice((s) => s.mission);
+  const engine = useOffice((s) => s.engine);
+  const claude = useOffice((s) => s.claude);
   const busy = useOffice((s) => s.busySince !== null);
   const replaying = useOffice((s) => s.replaying);
   const chef = useOffice((s) => s.chef);
@@ -90,7 +92,8 @@ export function Dialog() {
   let text: string;
   if (tour) text = tour.text;
   else if (connection === 'offline') text = 'Je n’arrive pas à joindre le serveur. Vérifie ta connexion, puis recharge la page.';
-  else if (!mission && !getCode()) text = 'Salut ! Moi, c’est Lilou, la cheffe de l’open space. Pour commencer, entre le code d’accès dans les réglages (⚙️ en haut à droite).';
+  else if (engine === 'claude-code' && claude && !claude.found) text = 'Je ne trouve pas Claude Code sur cet ordinateur. Installe-le (claude.com/claude-code), lance « claude » une fois pour te connecter à ton compte Claude, puis relance « npm start ».';
+  else if (engine === 'cloud' && !mission && !getCode()) text = 'Salut ! Moi, c’est Lilou, la cheffe de l’open space. Pour commencer, entre le code d’accès dans les réglages (⚙️ en haut à droite).';
   else if (!mission) text = 'Salut ! Moi, c’est Lilou, la cheffe de l’open space. Dis-moi ce dont tu as besoin : je confie le travail à mon analyste, et tu le regardes faire.';
   else if (chef.typing) text = stripMd(chef.typing);
   else if (final && !busy) text = stripMd(final.text) || (final.ok ? 'C’est prêt !' : 'Mission arrêtée.');

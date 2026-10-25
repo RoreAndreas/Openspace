@@ -130,7 +130,7 @@ export function countStats(s: MissionStats, ev: OfficeEvent) {
 export function relToFolder(text: string, folder: string): string {
   if (!folder) return text;
   const esc = folder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return text.replace(new RegExp(esc + '(?=$|[/"\'\\s])', 'g'), '.').replace(/(^|[\s"'])\.\//g, '$1');
+  return text.replace(new RegExp(esc + '(?=$|[/\\\\"\'\\s])', 'g'), '.').replace(/(^|[\s"'])\.\//g, '$1');
 }
 
 /** La commande telle qu'elle sera lancée, juste rendue lisible (le dossier de la mission devient « . »). Rien n'est caché. */
@@ -154,7 +154,7 @@ export function permissionText(tool: string, input: Record<string, unknown> | un
   if (tool === 'Write' || tool === 'Edit' || tool === 'MultiEdit' || tool === 'NotebookEdit') {
     const raw = String(i.file_path ?? i.notebook_path ?? '');
     const rel = relToFolder(raw, folder);
-    const inside = !!folder && raw.startsWith(folder + '/') && !rel.includes('..');
+    const inside = !!folder && (raw.startsWith(folder + '/') || raw.startsWith(folder + '\\')) && !rel.includes('..');
     return { label: `Je peux ${tool === 'Write' ? 'écrire' : 'modifier'} ${inside ? rel : raw} ?`, detail: raw, full: inside && rel.length <= FULL_MAX };
   }
   if (tool === 'WebFetch') return { label: `Je peux lire ${host(i.url)} ?`, detail: String(i.url ?? ''), full: false };
