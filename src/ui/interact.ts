@@ -27,6 +27,7 @@ export function party() {
 
 export function interact(hit: Hit) {
   const st = useOffice.getState();
+  world.touch();
   if (hit.kind === 'actor') {
     if (hit.id === 'chef') {
       sfx('click');

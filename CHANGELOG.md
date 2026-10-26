@@ -1,5 +1,11 @@
 # Les versions
 
+## Open space v0.3.2 (26 octobre 2026)
+
+- Claude Code : une version ancienne (sans l'option `--restricted` ni le mode « auto ») démarre quand même ; une erreur de version ou de connexion donne un message clair.
+- Ollama répond plus vite : la conversation envoyée est plus courte, et les réponses sont limitées.
+- Lilou ne part se promener qu'après 2 minutes sans rien à faire, puis revient à l'accueil (ou à son bureau).
+
 ## Open space v0.3.1 (26 octobre 2026)
 
 - Un modèle Ollama trop gros pour la mémoire du PC donne un message clair, et les réglages s'ouvrent.

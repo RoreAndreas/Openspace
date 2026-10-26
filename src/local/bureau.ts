@@ -6,7 +6,7 @@ import { countStats, emptyStats, NAMES } from '../../shared/activity.ts';
 import type { ClientMsg, FileInfo, Logged, MissionInfo, OfficeEvent, ServerMsg, Settings, TeamEntry, VersionInfo } from '../../shared/protocol.ts';
 import { playReplay } from '../net/link.ts';
 import { useOffice } from '../state/store.ts';
-import { runChef, errorText, type MissionFiles, type TeamCtx } from './agent.ts';
+import { runChef, errorText, setLightBudget, type MissionFiles, type TeamCtx } from './agent.ts';
 import { api, ApiError, availableModels, claude, getClaudeKey, getCode, modelInfo, MODELS, ollama, setOllamaModels, type ChatMsg } from './api.ts';
 import { dbDel, dbGet, dbSet, lsGet, lsSet } from './db.ts';
 import { download, zip } from './zip.ts';
@@ -71,6 +71,7 @@ class LocalBureau {
   /** Démarre le bureau dans le navigateur : en ligne (Cloudflare), ou sur ton ordinateur avec Ollama. */
   async init(mode: 'cloud' | 'ollama' = 'cloud') {
     this.local = mode === 'ollama';
+    setLightBudget(this.local);
     if (this.local) setOllamaModels(await ollama.models());
     this.settings = { ...DEFAULT_SETTINGS, ...lsGet<Partial<Settings>>(this.settingsKey, {}) };
     const models = this.models();

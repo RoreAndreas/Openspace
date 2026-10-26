@@ -22,6 +22,9 @@ type Task =
 
 const WALK_SPEED = 58; // pixels par seconde
 
+/** combien de secondes d'inactivité avant que Lilou aille faire un tour */
+const IDLE_STROLL = 120;
+
 interface StrollSpot { tile: Tile; face: Dir; ms: number; pose?: Pose; fx?: () => void; /** assez près de son bureau pour une pause en pleine mission */ near?: boolean }
 
 export class Actor {
@@ -119,7 +122,8 @@ export class World {
   private noteAt = 0;
   private steamAt = 0;
   /** quand Lilou repart faire un tour (elle ne reste jamais plantée) */
-  private strollAt = 3;
+  /** Lilou part faire un tour après 2 minutes sans rien à faire */
+  private strollAt = IDLE_STROLL;
   private lastStroll = -1;
   rosterVersion = 0;
   private rosterListeners = new Set<() => void>();
@@ -247,6 +251,8 @@ export class World {
 
   // ── Les événements ──
   apply(ev: OfficeEvent, live: boolean) {
+    // il se passe quelque chose : le compte à rebours de la promenade repart à zéro
+    if (ev.k !== 'typing') this.strollAt = Math.max(this.strollAt, this.time + IDLE_STROLL);
     const chef = this.chef;
     switch (ev.k) {
       case 'start':
@@ -472,11 +478,12 @@ export class World {
         this.fx.floatIcon(a.x, a.y - 24, iconFor(a.act));
       }
     }
-    // Lilou ne reste jamais plantée : sans mission, elle fait le tour de l'open space ; pendant une mission,
-    // quand elle attend l'analyste depuis un moment, elle va se dégourdir les jambes, puis revient à son bureau
+    // Après 2 minutes sans rien à faire, Lilou va se dégourdir les jambes (le café, la fontaine, une fenêtre…),
+    // puis elle revient à l'accueil, ou à son bureau pendant une mission
     if (!chef.busy && this.time > this.strollAt) {
       if (!this.missionActive && !chef.seated) this.stroll(false);
-      else if (this.missionActive && chef.seated && this.time - Math.max(chef.actAt, chef.thinkAt) > 24) this.stroll(true);
+      else if (this.missionActive && chef.seated) this.stroll(true);
+      else this.strollAt = this.time + IDLE_STROLL;
     }
     for (const a of [...this.actors.values()]) {
       if (!a.cur && a.tasks.length) { a.cur = a.tasks.shift()!; this.startTask(a, a.cur); }
@@ -490,6 +497,9 @@ export class World {
     }
     return moving;
   }
+
+  /** Tu cliques dans le bureau : Lilou reste disponible (la promenade attend encore 2 minutes). */
+  touch() { this.strollAt = Math.max(this.strollAt, this.time + IDLE_STROLL); }
 
   /** Les endroits où Lilou aime passer, et ce qu'elle y fait. */
   private strollSpots(): StrollSpot[] {
@@ -524,11 +534,9 @@ export class World {
       { t: 'call', fn: () => s.fx?.() },
       { t: 'wait', ms: s.ms, pose: s.pose, dir: s.face },
     );
-    if (backToDesk) {
-      this.queue(chef, { t: 'walk', tile: CHEF_SEAT.tile }, { t: 'sit', seat: CHEF_SEAT });
-      chef.actAt = this.time;
-      this.strollAt = this.time + 30 + Math.random() * 20;
-    } else this.strollAt = this.time + 2 + Math.random() * 4;
+    if (backToDesk) this.queue(chef, { t: 'walk', tile: CHEF_SEAT.tile }, { t: 'sit', seat: CHEF_SEAT });
+    else if (s.tile !== SPOTS.reception) this.queue(chef, { t: 'walk', tile: SPOTS.reception, then: SPOTS.receptionPx }, { t: 'wait', ms: 1200, pose: 'wave', dir: 'down' });
+    this.strollAt = this.time + IDLE_STROLL;
   }
 
   // ── Les petits gestes du bureau (quand on clique sur les objets) ──

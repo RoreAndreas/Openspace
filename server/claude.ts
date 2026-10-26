@@ -13,7 +13,11 @@ import readline from 'node:readline';
 import { describeAct, NAMES, permissionText, roleOfType, ROLES, cut } from '../shared/activity.ts';
 import type { OfficeEvent, PlanItem, Quota, Role } from '../shared/protocol.ts';
 
-export interface ClaudeBinary { path: string; version: string; /** ce qu'on lance vraiment */ file: string; pre: string[] }
+export interface ClaudeBinary {
+  path: string; version: string; /** ce qu'on lance vraiment */ file: string; pre: string[];
+  /** ce que cette version de Claude Code sait faire (une version ancienne n'a pas toutes les options) */
+  supports: { restricted: boolean; tools: boolean; autoMode: boolean };
+}
 
 function run(file: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -34,7 +38,11 @@ export async function findClaude(): Promise<ClaudeBinary | null> {
     const c = resolveShim(raw);
     try {
       const out = await run(c.file, [...c.pre, '--version']);
-      return { path: raw, version: out.trim().split(/\s+/)[0] ?? out.trim(), file: c.file, pre: c.pre };
+      let help = '';
+      try { help = await run(c.file, [...c.pre, '--help']); } catch { /* on fera sans les options récentes */ }
+      // sans aide lisible, on suppose une version récente
+      const supports = help ? { restricted: /--restricted\b/.test(help), tools: /--tools\b/.test(help), autoMode: /"auto"/.test(help) } : { restricted: true, tools: true, autoMode: true };
+      return { path: raw, version: out.trim().split(/\s+/)[0] ?? out.trim(), file: c.file, pre: c.pre, supports };
     } catch { /* on essaie le suivant */ }
   }
   return null;
@@ -70,6 +78,8 @@ export interface ProcessOptions {
   /** les consignes du chef, ajoutées à celles de Claude Code */
   appendSystemPrompt: string;
   useApiKey: boolean;
+  /** les options de cette version de Claude Code */
+  supports?: ClaudeBinary['supports'];
 }
 
 type Json = Record<string, any>;
@@ -94,13 +104,17 @@ export class ClaudeProcess {
 
   start() {
     const o = this.opts;
+    const sup = o.supports ?? { restricted: true, tools: true, autoMode: true };
+    // une version ancienne de Claude Code ne connaît pas le mode « auto » : elle accepte les modifications de fichiers
+    const mode = o.permissionMode === 'auto' && !sup.autoMode ? 'acceptEdits' : o.permissionMode;
     const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
-      '--include-partial-messages', '--permission-prompt-tool', 'stdio', '--permission-mode', o.permissionMode,
-      // mode restreint : seuls les outils listés existent, les outils de fichiers restent dans le dossier
-      // de la mission, et ni tes réglages ni tes agents personnels ne s'invitent dans le bureau
-      '--restricted', '--tools', o.tools.join(','),
-      '--agents', o.agents,
-      '--append-system-prompt', o.appendSystemPrompt];
+      '--include-partial-messages', '--permission-prompt-tool', 'stdio', '--permission-mode', mode];
+    // mode restreint : seuls les outils listés existent, les outils de fichiers restent dans le dossier
+    // de la mission, et ni tes réglages ni tes agents personnels ne s'invitent dans le bureau.
+    // Une version ancienne de Claude Code n'a pas cette option (elle refuserait de démarrer) : on s'en passe.
+    if (sup.restricted) args.push('--restricted');
+    if (sup.tools) args.push('--tools', o.tools.join(','));
+    args.push('--agents', o.agents, '--append-system-prompt', o.appendSystemPrompt);
     if (o.model) args.push('--model', o.model);
     if (o.resume) args.push('--resume', o.resume);
     if (o.allowedTools.length) args.push('--allowedTools', o.allowedTools.join(','));

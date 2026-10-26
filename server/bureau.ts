@@ -240,6 +240,7 @@ export class Bureau {
         bin: this.claude.file, pre: this.claude.pre, cwd: cur.mission.folder, permissionMode: s.permission === 'ask' ? 'acceptEdits' : 'auto',
         model: s.model || undefined, resume, tools: SESSION_TOOLS, allowedTools: ALWAYS_ALLOWED,
         agents: agentsJson(s, cur.team.context), appendSystemPrompt: chefPrompt(cur.team.context), useApiKey: process.env.BUREAU_USE_API_KEY === '1',
+        supports: this.claude.supports,
       },
       (m) => {
         if (cur.live?.proc !== proc) return; // un ancien processus qui parle encore
@@ -317,9 +318,13 @@ export class Bureau {
       return;
     }
     if (cur.mission.status === 'working') {
-      const message = failed
-        ? (stderr.split('\n').filter(Boolean).slice(-3).join(' ') || (signal ? `Claude Code s’est arrêté (${signal}).` : `Claude Code s’est arrêté (code ${code}).`))
-        : 'Claude Code s’est arrêté.';
+      const raw = stderr.split('\n').filter(Boolean).slice(-3).join(' ');
+      const message = !failed ? 'Claude Code s’est arrêté.'
+        // une option inconnue : la version de Claude Code est trop ancienne
+        : /unknown option|unrecognized|invalid value|argument .* is invalid/i.test(raw) ? `Ta version de Claude Code est trop ancienne pour le bureau. Dans un terminal, lance « claude update », puis relance le bureau. (Détail : ${raw.slice(0, 200)})`
+        // pas connecté à son compte Claude
+        : /not logged in|login|authenticat|\/login|invalid api key|oauth/i.test(raw) ? 'Claude Code n’est pas connecté à ton compte Claude. Dans un terminal, tape « claude », connecte-toi, puis relance la mission.'
+        : raw || (signal ? `Claude Code s’est arrêté (${signal}).` : `Claude Code s’est arrêté (code ${code}).`);
       if (!cur.stopAsked) this.record(cur, { k: 'error', message });
       // les membres de l'équipe encore présents s'en vont
       for (const id of l.norm.present) this.record(cur, { k: 'leave', who: id, ok: false, tokens: 0, tools: 0, ms: 0 });

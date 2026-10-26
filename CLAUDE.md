@@ -47,8 +47,9 @@ D'après « Le Bureau des agents » (VibesMoney, MIT).
   Le tiroir est le meuble `cabinet` (`furniture.ts`, `layout.ts`, `hits.ts`, `ui/interact.ts`).
 - **`src/ui/`** : l'interface React. `Extras.tsx` : le tiroir, les skills, le règlement, la sauvegarde. `Jukebox.tsx` : la
   liste YouTube et le petit lecteur (`src/audio/music.ts` pilote l'iframe youtube-nocookie par `postMessage`).
-- La note « Comment ça marche » est le meuble `note` (fenêtre `howto` dans `Rooms.tsx`). Lilou se promène quand elle
-  n'a rien à faire (`stroll` dans `world.ts`). Le panneau de droite se replie (`panelOpen`, touche P).
+- La note « Comment ça marche » est le meuble `note` (fenêtre `howto` dans `Rooms.tsx`). Lilou se promène après 2 minutes
+  d'inactivité (`stroll`, `IDLE_STROLL` dans `world.ts`). `findClaude` lit `claude --help` : sans `--restricted` ni mode
+  « auto » (version ancienne), le pont s'en passe (`supports`). Le panneau de droite se replie (`panelOpen`, touche P).
 
 ## Les règles
 

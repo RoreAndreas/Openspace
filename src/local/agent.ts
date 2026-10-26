@@ -36,8 +36,15 @@ interface Action { say: string; action: string; input: Record<string, unknown> }
 
 const CHEF_STEPS = 14;
 const ANALYST_STEPS = 16;
-const MAX_HISTORY = 52_000;
-const MAX_RESULT = 7_000;
+let MAX_HISTORY = 52_000;
+let MAX_RESULT = 7_000;
+let MAX_DOC = 12_000;
+/** Une IA sur ton ordinateur (Ollama) lit lentement : on lui envoie une conversation plus courte (bien plus rapide). */
+export function setLightBudget(on: boolean) {
+  MAX_HISTORY = on ? 16_000 : 52_000;
+  MAX_RESULT = on ? 3_000 : 7_000;
+  MAX_DOC = on ? 5_000 : 12_000;
+}
 
 const today = () => new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -75,7 +82,7 @@ function fit(messages: ChatMsg[]): ChatMsg[] {
   return out;
 }
 
-const clip = (s: string, n = MAX_RESULT) => (s.length > n ? s.slice(0, n) + '\n[…coupé]' : s);
+const clip = (s: string, n: number = MAX_RESULT) => (s.length > n ? s.slice(0, n) + '\n[…coupé]' : s);
 const str = (v: unknown, n = 20_000) => (typeof v === 'string' ? v : v == null ? '' : JSON.stringify(v)).slice(0, n);
 
 interface Usage { tokens: number }
@@ -117,7 +124,7 @@ async function common(ctx: TeamCtx, who: string, a: Action): Promise<string | nu
     case 'read_file': {
       const name = str(i.name ?? i.file, 200);
       return act(ctx, who, 'Read', { file_path: name }, async () => ctx.files.read(name) ?? `Le fichier « ${name} » n’existe pas. Fichiers : ${ctx.files.list().join(', ') || 'aucun'}.`)
-        .then((t) => clip(t, 12_000));
+        .then((t) => clip(t, MAX_DOC));
     }
     case 'write_file': {
       const name = str(i.name ?? i.file, 200);
@@ -141,7 +148,7 @@ async function common(ctx: TeamCtx, who: string, a: Action): Promise<string | nu
     case 'use_skill': {
       const s = findSkill(str(i.name ?? i.skill, 60));
       if (!s) return `Skill introuvable. ${skillsPrompt() || 'Aucun skill installé.'}`;
-      return act(ctx, who, 'Skill', { skill: s.name }, async () => clip(s.content, 12_000));
+      return act(ctx, who, 'Skill', { skill: s.name }, async () => clip(s.content, MAX_DOC));
     }
   }
   return null;

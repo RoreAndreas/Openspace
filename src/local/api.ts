@@ -193,7 +193,8 @@ export const ollama = {
         body: JSON.stringify({
           model: name, messages, stream: false, think: false, keep_alive: '20m',
           ...(json ? { format: 'json' } : {}),
-          options: { temperature: 0.3, num_ctx: 8192 },
+          // une fenêtre de 8 000 jetons (la conversation est raccourcie pour y tenir) et des réponses de 2 000 jetons au plus
+          options: { temperature: 0.3, num_ctx: 8192, num_predict: 2000 },
         }),
       });
     } catch (e) {
