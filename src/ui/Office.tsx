@@ -9,6 +9,7 @@ import { jukebox } from '../audio/music.ts';
 import { interact } from './interact.ts';
 import { H, W } from '../engine/layout.ts';
 import { sfx } from '../audio/sfx.ts';
+import { modelInfo } from '../local/api.ts';
 import { useOffice, type AskView } from '../state/store.ts';
 
 const ICON: Record<ActKind, string> = {
@@ -117,6 +118,8 @@ export function Office() {
       const m = cap?.music?.();
       const level = m ? m.level : jukebox.sample();
       world.setMusic(m ? m.on : jukebox.playing, level, m ? m.beat : jukebox.beat);
+      // le levier montre le cerveau de l'équipe : Claude (orange) ou l'IA gratuite (vert)
+      world.leverFree = st.engine === 'ollama' || (st.engine === 'cloud' && modelInfo(st.settings.model)?.provider !== 'claude');
       if (!cap && acc < (active || camMoving ? 1 / 24 : 1 / 8)) return;
       const t0 = performance.now();
       active = world.update(acc);

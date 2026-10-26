@@ -18,15 +18,21 @@ for /f "delims=" %%v in ('node -v') do echo   [OK] Node.js %%v
 set "CLAUDE_OK="
 where claude >nul 2>nul && set "CLAUDE_OK=1"
 if exist "%USERPROFILE%\.local\bin\claude.exe" set "CLAUDE_OK=1"
-if not defined CLAUDE_OK (
-  echo   [X] Claude Code n'est pas installe.
-  echo       Dans PowerShell, lance : irm https://claude.ai/install.ps1 ^| iex
-  echo       puis tape : claude   ^(pour te connecter a ton compte Claude^), et relance ce fichier.
-  echo.
-  pause
-  exit /b 1
+if defined CLAUDE_OK (
+  echo   [OK] Claude Code trouve : le levier du bureau sur orange = ton compte Claude
+) else (
+  echo   [!] Claude Code n'est pas installe : l'equipe travaillera avec l'IA gratuite.
+  echo       Pour ton compte Claude, dans PowerShell : irm https://claude.ai/install.ps1 ^| iex
 )
-echo   [OK] Claude Code trouve
+set "OLLAMA_OK="
+where ollama >nul 2>nul && set "OLLAMA_OK=1"
+if exist "%LOCALAPPDATA%\Programs\Ollama\ollama.exe" set "OLLAMA_OK=1"
+if defined OLLAMA_OK (
+  echo   [OK] Ollama trouve : le levier du bureau sur vert = l'IA gratuite, sur ton PC
+) else (
+  echo   [!] Ollama n'est pas installe : pour l'IA gratuite, installe-le sur https://ollama.com
+  echo       ^(sans droits d'administrateur^), puis : ollama pull qwen3:4b
+)
 echo.
 if not exist node_modules (
   echo   Premiere fois : installation ^(1 a 2 minutes^)...

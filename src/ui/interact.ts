@@ -4,6 +4,7 @@ import { sfx } from '../audio/sfx.ts';
 import { say } from '../audio/voice.ts';
 import { world } from '../engine/instance.ts';
 import type { Hit } from '../engine/hits.ts';
+import { pullLever } from '../net/link.ts';
 import { savePref, useOffice, type Tod } from '../state/store.ts';
 
 const TOD_NEXT: Record<Tod, Tod> = { auto: 'day', day: 'evening', evening: 'night', night: 'auto' };
@@ -19,7 +20,7 @@ let jukeClicks: number[] = [];
 /** Le mode soirée : la boule à facettes, la musique, et toute l'équipe qui danse. */
 export function party() {
   world.disco(16);
-  if (!jukebox.playing) jukebox.play(2);
+  if (!jukebox.playing && jukebox.list.length) jukebox.play();
   void say('afterwork', true);
   sfx('done');
 }
@@ -65,6 +66,12 @@ export function interact(hit: Hit) {
     case 'rack': sfx('open'); useOffice.setState({ modal: { kind: 'machine' } }); return;
     case 'printer': sfx('open'); useOffice.setState({ modal: { kind: 'files' } }); return;
     case 'cabinet': sfx('open'); useOffice.setState({ modal: { kind: 'drawer' } }); return;
+    case 'note': sfx('paper'); useOffice.setState({ modal: { kind: 'howto' } }); return;
+    case 'lever': {
+      if (pullLever()) { world.leverAt = world.time; world.wiggle('lever', 13 * 16 + 8, 3 * 16); sfx('check'); }
+      else sfx('no');
+      return;
+    }
     case 'shelf': sfx('open'); useOffice.setState({ historyOpen: true }); return;
     case 'door': sfx('open'); useOffice.setState({ modal: { kind: 'team' } }); return;
     case 'neon': world.neonNext(); sfx('check'); return;

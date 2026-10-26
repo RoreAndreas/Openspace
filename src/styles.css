@@ -54,7 +54,8 @@ button:disabled { cursor: default; opacity: 0.45; }
   border-right: 1px solid var(--line);
   background: #070709;
 }
-.main { display: grid; grid-template-columns: minmax(0, 1fr) 372px; min-height: 0; }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 372px; min-height: 0; transition: grid-template-columns 0.32s ease; }
+.app.panel-closed .main { grid-template-columns: minmax(0, 1fr) 0px; }
 .app.vertical .main, .app.filming .main { grid-template-columns: minmax(0, 1fr); }
 .stage { position: relative; display: flex; min-width: 0; min-height: 0; }
 
@@ -270,7 +271,10 @@ button:disabled { cursor: default; opacity: 0.45; }
 .app.vertical .tools { margin-left: auto; }
 
 /* ── Le panneau de l'équipe ── */
-.panel { border-left: 1px solid var(--line); background: rgba(10, 10, 13, 0.85); overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.panel { border-left: 1px solid var(--line); background: rgba(10, 10, 13, 0.85); overflow: hidden; min-width: 0; transition: opacity 0.25s ease; }
+.panel.closed { opacity: 0; border-left-color: transparent; pointer-events: none; }
+.panel-inner { width: 372px; height: 100%; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.hint-card p { margin: 0; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
 .card h3 { margin: 0 0 8px; font: 800 11.5px var(--font); text-transform: uppercase; letter-spacing: 0.09em; color: var(--orange2); display: flex; align-items: center; justify-content: space-between; }
 .card h4 { margin: 10px 0 4px; font-size: 12px; color: var(--muted); }
@@ -353,7 +357,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 .chip:hover { border-color: rgba(255, 138, 61, 0.5); background: rgba(255, 138, 61, 0.08); }
 
 /* ── Lilou, en bas (boîte de dialogue de jeu de rôle) ── */
-.dialog { padding: 10px 16px 14px; border-top: 1px solid var(--line); background: rgba(8, 8, 11, 0.92); display: grid; gap: 8px; }
+.dialog { padding: 10px 16px 14px; border-top: 1px solid var(--line); background: rgba(8, 8, 11, 0.92); display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .dialog-box {
   display: flex;
   gap: 14px;
@@ -377,7 +381,8 @@ button:disabled { cursor: default; opacity: 0.45; }
 
 .composer-row { display: flex; gap: 8px; align-items: stretch; }
 .composer textarea {
-  flex: 1;
+  flex: 1 1 0;
+  width: 0;
   min-width: 0;
   resize: none;
   border-radius: 12px;
@@ -651,3 +656,69 @@ input[type='color'] { width: 34px; height: 34px; padding: 0; border: 1px solid v
 .err-text { color: #ffb0b0; }
 .skill .pill { background: var(--surface3); color: var(--orange2); }
 .claude-login a { color: var(--orange2); }
+
+/* ── La languette du panneau de droite ── */
+.panel-toggle {
+  position: absolute; right: 0; top: 50%; z-index: 7; transform: translateY(-50%);
+  width: 18px; height: 64px; padding: 0; border: 1px solid var(--line2); border-right: 0; border-radius: 10px 0 0 10px;
+  background: rgba(19, 19, 24, 0.92); color: var(--muted); font: 700 16px/1 var(--font);
+  display: grid; place-items: center; transition: background 0.2s, color 0.2s, width 0.2s;
+}
+.panel-toggle:hover { background: rgba(255, 138, 61, 0.16); color: var(--orange); width: 22px; }
+.panel-toggle:not(.open) { color: var(--orange2); box-shadow: -6px 0 20px rgba(255, 138, 61, 0.12); }
+
+/* ── Les idées de mission : des petites bulles grises, comme dans le chat de Hares ── */
+.ideas { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.idea {
+  padding: 5px 11px; border: 0; border-radius: 999px; background: #f0f0f3;
+  font: 500 12px/1.3 var(--font); color: #5b5f6b; cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.idea:hover { background: #e2e2e9; color: #1f2937; transform: translateY(-1px); }
+.app.filming .ideas { display: none; }
+
+/* ── Le jukebox ── */
+.jk-controls { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 10px 0 6px; }
+.jk-controls button { min-width: 34px; height: 32px; border-radius: 8px; border: 1px solid var(--line2); background: var(--surface2); font-size: 14px; display: grid; place-items: center; }
+.jk-controls button:hover:not(:disabled) { border-color: rgba(255, 138, 61, 0.5); }
+.jk-controls button.on { background: rgba(255, 138, 61, 0.14); border-color: rgba(255, 138, 61, 0.45); }
+.jk-controls .jk-play { min-width: 44px; background: var(--grad); color: #15121d; border-color: transparent; }
+.jk-controls.small { margin: 0; padding: 6px; gap: 3px; justify-content: center; }
+.jk-controls.small button { min-width: 28px; height: 26px; font-size: 12px; }
+.jk-controls.small .jk-play { min-width: 34px; }
+.jk-volume { display: inline-flex; align-items: center; gap: 6px; margin-left: 6px; font-size: 13px; }
+.jk-volume input { width: 110px; accent-color: var(--orange); }
+.jk-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 4px; max-height: 300px; overflow-y: auto; }
+.jk-list li { display: flex; align-items: stretch; gap: 4px; }
+.jk-track { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); }
+.jk-track:hover { border-color: var(--line2); background: var(--surface2); }
+.jk-list li.on .jk-track { border-color: rgba(255, 138, 61, 0.5); background: rgba(255, 138, 61, 0.08); }
+.jk-num { width: 18px; text-align: center; color: var(--muted); font: 600 12px var(--pixel); flex: none; }
+.jk-list li.on .jk-num { color: var(--orange); }
+.jk-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.jk-del { width: 32px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 16px; }
+.jk-del:hover { color: #ffb0b0; border-color: rgba(255, 93, 93, 0.4); }
+
+/* ── Le petit lecteur du jukebox, en bas à gauche du bureau ── */
+.music-dock {
+  position: absolute; left: 14px; bottom: 14px; z-index: 6; width: 268px;
+  border: 1px solid var(--line2); border-radius: 12px; overflow: hidden;
+  background: rgba(12, 12, 16, 0.94); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 95, 162, 0.08);
+  transition: opacity 0.2s ease, transform 0.2s ease, width 0.2s ease;
+}
+.music-dock:not(.shown) { opacity: 0; pointer-events: none; transform: translateY(8px); position: fixed; left: -9999px; }
+.music-dock.small { width: 200px; }
+.music-dock.filming { left: 10px; bottom: 10px; }
+.dock-head { display: flex; align-items: center; gap: 2px; padding: 4px 4px 4px 10px; border-bottom: 1px solid var(--line); }
+.dock-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 11.5px var(--font); color: var(--orange2); }
+.dock-head button { width: 24px; height: 24px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 13px; }
+.dock-head button:hover { background: var(--surface2); color: var(--ink); }
+.dock-screen { aspect-ratio: 16 / 9; background: #000; }
+.yt-frame { display: block; width: 100%; height: 100%; border: 0; }
+
+/* ── Comment ça marche, le levier ── */
+.steps.big { font-size: 14px; gap: 9px; }
+.seg.brain { display: flex; flex-wrap: wrap; }
+.seg.brain button.on.claude { background: rgba(255, 138, 61, 0.16); box-shadow: inset 0 0 0 1px rgba(255, 138, 61, 0.55); color: var(--ink); }
+.seg.brain button.on.free { background: rgba(61, 220, 151, 0.14); box-shadow: inset 0 0 0 1px rgba(61, 220, 151, 0.5); color: var(--ink); }
+@media (max-width: 760px) { .panel-toggle { display: none; } .music-dock { width: 200px; left: 8px; bottom: 8px; } }

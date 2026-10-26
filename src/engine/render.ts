@@ -167,10 +167,43 @@ export class Renderer {
       }
     }
     if (f.kind === 'jukebox') this.jukeboxLights(g, p, world, t);
+    if (f.kind === 'lever') this.lever(g, p, world, t);
+    if (f.kind === 'note') {
+      // le post-it scintille doucement : on peut cliquer dessus
+      if (Math.sin(t * 2.2) > 0.85) { g.fillStyle = '#ffffff'; g.fillRect(p.x + 4, p.y + 1, 1, 1); }
+    }
     if (f.kind === 'coffee') {
       g.fillStyle = Math.floor(t * 1.5) % 2 ? P.orange : P.orangeDark;
       g.fillRect(p.x + 14, p.y + 2, 1, 1);
     }
+  }
+
+  /** La poignée du levier : à gauche (Claude, voyant orange) ou à droite (IA gratuite, voyant vert). */
+  private lever(g: G, p: Placed, world: World, t: number) {
+    const free = world.leverFree;
+    // pendant 0,4 s après un changement, la poignée passe par le milieu
+    const moving = t - world.leverAt < 0.4;
+    const dx = moving ? 0 : free ? 3 : -3;
+    const baseX = p.x + 8, baseY = p.y + 12;
+    // la tige, du socle vers la boule
+    for (let i = 0; i < 9; i++) {
+      g.fillStyle = i % 3 === 0 ? '#8f8aa1' : '#cfcbd9';
+      g.fillRect(Math.round(baseX + (dx * i) / 8) - 1, baseY - i, 2, 1);
+    }
+    // la boule
+    const bx = Math.round(baseX + dx) - 2, by = baseY - 12;
+    g.fillStyle = P.ink;
+    g.fillRect(bx - 1, by - 1, 6, 6);
+    g.fillStyle = free ? '#3ddc97' : P.orange;
+    g.fillRect(bx, by, 4, 4);
+    g.fillStyle = '#ffffff';
+    g.fillRect(bx, by, 1, 1);
+    // les voyants
+    const blink = Math.sin(t * 4) > -0.3;
+    g.fillStyle = !free && blink ? P.orange : '#5a3a24';
+    g.fillRect(p.x + 3, p.y + 16, 3, 3);
+    g.fillStyle = free && blink ? '#3ddc97' : '#1f3e2e';
+    g.fillRect(p.x + 10, p.y + 16, 3, 3);
   }
 
   /** Les néons de l'arche du jukebox : éteints au repos, ils défilent et pulsent sur la musique. */
@@ -337,6 +370,9 @@ export class Renderer {
     add(world.cat.x + (world.cat.right ? 4 : -4), world.cat.y - 8, 4, P.orange, 0.5);
     add(16 * T + 14, 14 * T - 8, 14, P.orange, 0.5);
     add(14 * T + 4, 3 * T + 6, 18, '#5fd0ff', 0.35);
+    // le levier (la couleur du cerveau) et la note jaune
+    add(13 * T + 8, 3 * T + 6, 16, world.leverFree ? '#3ddc97' : P.orange, 0.5);
+    add(13 * T + 8, 7 * T - 4, 12, '#ffd84d', 0.35);
     add(11 * T, 15 * T + 8, 30, '#ffe2b8', 0.4);
     if (t < world.printUntil) add(12 * T + 8, 4 * T - 2, 16, '#9effa8', 0.6);
     // les écrans éclairent les visages

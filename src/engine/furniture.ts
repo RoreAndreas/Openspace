@@ -351,6 +351,52 @@ function cabinetSprite(): Sprite {
   return { c, ox: 1, oy: -10, sort: 15 };
 }
 
+/** La note « Comment ça marche » : un post-it jaune, avec un point d'interrogation, sur un petit pupitre. */
+function noteSprite(): Sprite {
+  const c = makeCanvas(14, 24);
+  const g = g2d(c);
+  // le pied et le socle du pupitre
+  rect(g, 6, 11, 2, 10, P.woodDark);
+  vline(g, 6, 11, 10, P.woodFront);
+  rect(g, 3, 21, 8, 2, P.woodLeg);
+  hline(g, 3, 21, 8, P.wood);
+  // le plateau incliné
+  rect(g, 1, 7, 12, 5, P.wood);
+  hline(g, 1, 7, 12, P.woodHi);
+  hline(g, 1, 11, 12, P.woodDark);
+  // le post-it (un coin relevé) et son « ? »
+  rect(g, 3, 0, 8, 8, '#ffd84d');
+  hline(g, 3, 0, 8, '#ffe98a');
+  px(g, 10, 7, '#d9ad21');
+  px(g, 10, 6, '#f2c534');
+  rect(g, 6, 1, 3, 1, '#3a2f44');
+  px(g, 8, 2, '#3a2f44');
+  px(g, 7, 3, '#3a2f44');
+  px(g, 7, 5, '#3a2f44');
+  outline(c, P.ink);
+  return { c, ox: 1, oy: -8, sort: 14 };
+}
+
+/** Le levier du cerveau : un boîtier avec deux voyants ; la poignée est dessinée par le moteur (elle bouge). */
+function leverSprite(): Sprite {
+  const c = makeCanvas(16, 24);
+  const g = g2d(c);
+  // le boîtier
+  rect(g, 1, 9, 14, 13, '#3a3646');
+  hline(g, 1, 9, 14, '#56516a');
+  vline(g, 14, 10, 12, '#2b2836');
+  rect(g, 2, 21, 12, 1, '#2b2836');
+  // la fente de la poignée
+  rect(g, 4, 11, 8, 2, '#15121c');
+  // les deux voyants (éteints ici : le moteur allume le bon)
+  rect(g, 3, 16, 3, 3, '#5a3a24');
+  rect(g, 10, 16, 3, 3, '#1f3e2e');
+  // les rayures jaunes et noires du socle
+  for (let x = 1; x < 15; x += 2) px(g, x, 22, '#ffd166');
+  outline(c, P.ink);
+  return { c, ox: 0, oy: -8, sort: 14 };
+}
+
 function coolerSprite(): Sprite {
   const c = makeCanvas(12, 30);
   const g = g2d(c);
@@ -550,6 +596,8 @@ export function furnitureSprite(f: Furn): Sprite {
     case 'bin': s = binSprite(); break;
     case 'jukebox': s = jukeboxSprite(); break;
     case 'cabinet': s = cabinetSprite(); break;
+    case 'note': s = noteSprite(); break;
+    case 'lever': s = leverSprite(); break;
   }
   cache.set(key, s);
   return s;

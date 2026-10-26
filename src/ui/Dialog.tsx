@@ -30,6 +30,15 @@ export const EXAMPLES: { label: string; prompt: string }[] = [
   },
 ];
 
+/** Après une mission : des idées de retouche. */
+export const RETOUCHES: { label: string; prompt: string }[] = [
+  { label: '✂️ Plus court', prompt: 'Raccourcis le rapport : une page au plus, avec les points essentiels en tête.' },
+  { label: '📋 Un tableau récapitulatif', prompt: 'Ajoute au rapport un tableau récapitulatif des points clés.' },
+  { label: '🎨 Avec ma charte', prompt: 'Reprends le rapport avec les couleurs et les types de texte de mon tiroir.' },
+  { label: '📣 3 posts LinkedIn', prompt: 'À partir de ce rapport, écris 3 posts LinkedIn prêts à publier, avec un ton professionnel et chaleureux.' },
+  { label: '🇬🇧 En anglais', prompt: 'Traduis le rapport en anglais, en gardant la mise en forme.' },
+];
+
 const stripMd = (s: string) =>
   tidy(s).replace(/```[\s\S]*?```/g, ' ').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
     .replace(/[*_`#>]+/g, '').replace(/^\s*[-•]\s+/gm, '• ').replace(/\n{2,}/g, '\n').trim();
@@ -92,9 +101,10 @@ export function Dialog() {
   let text: string;
   if (tour) text = tour.text;
   else if (connection === 'offline') text = 'Je n’arrive pas à joindre le serveur. Vérifie ta connexion, puis recharge la page.';
-  else if (engine === 'claude-code' && claude && !claude.found) text = 'Je ne trouve pas Claude Code sur cet ordinateur. Installe-le (claude.com/claude-code), lance « claude » une fois pour te connecter à ton compte Claude, puis relance « npm start ».';
+  else if (engine === 'claude-code' && claude && !claude.found) text = 'Je ne trouve pas Claude Code sur cet ordinateur. Installe-le (claude.com/claude-code), lance « claude » une fois pour te connecter à ton compte Claude, puis relance « npm start ». En attendant, tire le levier à côté du serveur : on travaillera avec l’IA gratuite (Ollama).';
+  else if (engine === 'ollama' && claude && !claude.found) text = 'Je ne trouve pas Ollama, l’IA gratuite de ton ordinateur. Ouvre l’application Ollama (ou installe-la sur ollama.com, sans droits d’administrateur), installe un modèle (par exemple : ollama pull qwen3:4b), puis recharge la page. Ou abaisse le levier, à côté du serveur, pour revenir sur Claude.';
   else if (engine === 'cloud' && !mission && !getCode()) text = 'Salut ! Moi, c’est Lilou, la cheffe de l’open space. Pour commencer, entre le code d’accès dans les réglages (⚙️ en haut à droite).';
-  else if (!mission) text = 'Salut ! Moi, c’est Lilou, la cheffe de l’open space. Dis-moi ce dont tu as besoin : je confie le travail à mon analyste, et tu le regardes faire.';
+  else if (!mission) text = `Salut ! Moi, c’est Lilou, la cheffe de l’open space. Dis-moi ce dont tu as besoin : je confie le travail à mon analyste, et tu le regardes faire.${engine === 'ollama' ? ' Aujourd’hui, on travaille avec l’IA gratuite de ton ordinateur : c’est plus lent, sois patiente.' : ''}`;
   else if (chef.typing) text = stripMd(chef.typing);
   else if (final && !busy) text = stripMd(final.text) || (final.ok ? 'C’est prêt !' : 'Mission arrêtée.');
   else if (chef.say) text = stripMd(chef.say);
@@ -178,8 +188,17 @@ function Composer() {
     setText('');
   };
 
+  // des idées de mission (ou de retouche), en petites bulles grises, comme dans le chat de Hares
+  const ideas = busy || replaying || demo || text.trim() ? [] : mode === 'new' ? EXAMPLES : mode === 'retouch' ? RETOUCHES : [];
+  const pick = (prompt: string) => { sfx('click'); setText(prompt); setTimeout(() => { const el = area.current; if (el) { el.focus(); el.setSelectionRange(prompt.length, prompt.length); } }, 20); };
+
   return (
     <div className="composer">
+      {ideas.length > 0 && (
+        <div className="ideas" role="list" aria-label={mode === 'new' ? 'Des idées de mission' : 'Des idées de retouche'}>
+          {ideas.map((e) => <button key={e.label} role="listitem" className="idea" title={e.prompt} onClick={() => pick(e.prompt)}>{e.label}</button>)}
+        </div>
+      )}
       <div className={`composer-row ${dict.listening ? 'listening' : ''}`}>
         <textarea
           ref={area}

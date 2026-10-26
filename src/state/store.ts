@@ -61,12 +61,19 @@ export type Modal =
   /** les skills installés */
   | { kind: 'skills' }
   /** le règlement du bureau (qui est la patronne, comment travailler pour elle) */
-  | { kind: 'rules' };
+  | { kind: 'rules' }
+  /** « Comment ça marche » (la note posée près du bureau de Lilou) */
+  | { kind: 'howto' };
 
 interface S {
   connection: 'connecting' | 'live' | 'offline' | 'demo';
-  /** le moteur : Claude Code sur ton ordinateur (ton compte Claude), ou le bureau dans le navigateur (Cloudflare) */
-  engine: 'cloud' | 'claude-code';
+  /** le moteur : Claude Code sur ton ordinateur (ton compte Claude), le bureau dans le navigateur (Cloudflare),
+   *  ou le bureau dans le navigateur avec Ollama, l'IA gratuite sur ton ordinateur */
+  engine: 'cloud' | 'claude-code' | 'ollama';
+  /** le levier du bureau, sur ton ordinateur : Claude (ton compte) ou l'IA gratuite (Ollama) */
+  brain: 'claude' | 'free';
+  /** le panneau de droite (le plan, l'équipe, les rendus) : ouvert ou replié */
+  panelOpen: boolean;
   claude: ClaudeInfo | null;
   dir: string;
   settings: Settings;
@@ -96,7 +103,8 @@ interface S {
   teamHistory: TeamEntry[] | null;
   /** chaque version du plan, dans l'ordre (le tableau garde l'historique) */
   planHistory: { at: number; items: PlanItem[] }[];
-  music: { playing: boolean; index: number; volume: number };
+  /** le jukebox (tes liens YouTube) */
+  music: { playing: boolean; index: number; volume: number; list: { id: string; title: string }[]; repeat: 'off' | 'all' | 'one'; shuffle: boolean; loaded: boolean; error: string };
   /** la voix de la cheffe (désactivée : pas de fichiers audio, pour alléger) */
   voiceOn: boolean;
   /** en mode tournage, la caméra suit l'action toute seule */
@@ -136,6 +144,8 @@ const MAX_FEED = 160;
 export const useOffice = create<S>((set, get) => ({
   connection: 'connecting',
   engine: 'cloud',
+  brain: pref<'claude' | 'free'>('brain', 'claude'),
+  panelOpen: pref('panelOpen', true),
   claude: null,
   dir: '',
   settings: { model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', permission: 'auto' },
@@ -160,7 +170,7 @@ export const useOffice = create<S>((set, get) => ({
   versions: {},
   teamHistory: null,
   planHistory: [],
-  music: { playing: false, index: 0, volume: 0.55 },
+  music: { playing: false, index: 0, volume: 0.6, list: [], repeat: 'all', shuffle: false, loaded: false, error: '' },
   voiceOn: false,
   cameraAuto: pref('cameraAuto', true),
   tour: null,

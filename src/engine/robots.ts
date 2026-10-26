@@ -1,5 +1,5 @@
 // Les robots du bureau : des cubes-robots, comme le logo de VibesMoney (visière noire, yeux orange).
-// Lilou, le chef, est le robot noir du logo ; l'équipe est blanche, avec la couleur de son métier
+// Lilou, la cheffe, a la tête noire du logo et une veste blanche sur un haut orange ; l'équipe est blanche, avec la couleur de son métier
 // et un accessoire (le béret du designer, les lunettes de l'analyste…). Tout est dessiné en code,
 // pose par pose, puis gardé en mémoire.
 import type { Role } from '../../shared/protocol.ts';
@@ -29,7 +29,8 @@ function lookOf(role: Role): Look {
     return {
       chef: true, role,
       top: '#77718a', front: '#4a4658', shade: '#33303f', visor: '#0b0910', visorHi: '#4a4566',
-      body: '#4a4658', bodyHi: '#615c73', bodyShade: '#33303f', arm: '#5a5569', hand: '#3d3a4a', leg: '#2a2734', tip: P.orange,
+      // la veste blanche de Lilou (et ses manches)
+      body: '#f1eff7', bodyHi: '#ffffff', bodyShade: '#c6c1d4', arm: '#e4e1ec', hand: '#3d3a4a', leg: '#2a2734', tip: P.orange,
     };
   }
   const c = ROLES[role].color;
@@ -181,10 +182,21 @@ function drawBodyFront(g: CanvasRenderingContext2D, L: Look, dir: Dir, limbs: Li
   rect(g, 6, y + 4, 8, 1, L.bodyShade);
   rect(g, 13, y + 1, 1, 3, L.bodyShade);
   if (L.chef && dir === 'down') {
-    // la cravate orange du chef
-    rect(g, 9, y, 2, 1, P.orangeDark);
-    rect(g, 9, y + 1, 2, 2, P.orange);
-    px(g, 9, y + 3, P.orange);
+    // l'encolure en V de la veste blanche, sur le haut orange, et ses revers
+    rect(g, 8, y, 4, 1, P.orange);
+    rect(g, 9, y + 1, 2, 1, P.orange);
+    px(g, 7, y, L.bodyShade);
+    px(g, 12, y, L.bodyShade);
+    px(g, 8, y + 1, L.bodyShade);
+    px(g, 11, y + 1, L.bodyShade);
+    px(g, 9, y + 2, L.bodyShade);
+    px(g, 10, y + 2, L.bodyShade);
+    // les boutons et la poche de poitrine
+    px(g, 10, y + 3, '#8f8aa1');
+    px(g, 7, y + 2, '#ffd2a8');
+  } else if (L.chef && dir === 'up') {
+    // le dos de la veste : la couture
+    rect(g, 10, y + 1, 1, 3, L.bodyShade);
   } else if (!L.chef && dir === 'down') {
     // un petit voyant sur la poitrine
     px(g, 8, y + 2, lighten(L.body, 0.55));

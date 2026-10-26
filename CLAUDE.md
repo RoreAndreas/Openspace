@@ -4,7 +4,7 @@ Un bureau en pixel art où l'on regarde une équipe d'agents IA travailler : Lil
 seul analyste (rôle `analyse`), pour une responsable marketing et communication. Hébergé sur Cloudflare.
 D'après « Le Bureau des agents » (VibesMoney, MIT).
 
-## Trois moteurs
+## Quatre moteurs (et le levier)
 
 - **Version locale** (`npm start`, `server/`) : le pont Node lance Claude Code avec le compte Claude de l'utilisateur
   (`claude -p`, stream-json, `--agents` : un seul `analyste`). Le navigateur le détecte (WebSocket `/ws` sur localhost)
@@ -14,6 +14,12 @@ D'après « Le Bureau des agents » (VibesMoney, MIT).
 - **En ligne, Claude** : clé API Claude de l'utilisatrice (« Se connecter à Claude »), appels directs du navigateur à
   `api.anthropic.com` (`src/local/api.ts`, `claude`). Jamais d'identifiants d'abonnement Claude dans la version en ligne :
   Anthropic ne l'autorise pas.
+- **En local, IA gratuite** : Ollama sur le PC. Le bureau tourne dans le navigateur (`bureau.init('ollama')`, moteur
+  `ollama`) ; le serveur local relaie `/api/ollama/tags|chat` vers Ollama (`OLLAMA_HOST`, par défaut 127.0.0.1:11434)
+  et sert `/api/search`, `/api/fetch`, `/api/ping` (code partagé avec le Worker : `shared/web.ts`). Ces routes exigent le
+  bon `Host`, une origine du bureau et l'en-tête `x-code`.
+- **Le levier** (meuble `lever`, `pullLever` dans `src/net/link.ts`) : en local, il bascule `brain` (`claude` ↔ `free`,
+  dans localStorage) et recharge la page ; en ligne, il passe le modèle de Workers AI à Claude (clé API) et inversement.
 
 ## Les commandes
 
@@ -39,12 +45,16 @@ D'après « Le Bureau des agents » (VibesMoney, MIT).
 - **`src/state/store.ts`** (zustand) range les événements et les transmet au moteur (`src/engine/`).
 - **`src/engine/`** : le monde, le dessin (tout le pixel art est dessiné en code), la caméra, les clics.
   Le tiroir est le meuble `cabinet` (`furniture.ts`, `layout.ts`, `hits.ts`, `ui/interact.ts`).
-- **`src/ui/`** : l'interface React. `Extras.tsx` : le tiroir, les skills, le règlement, la sauvegarde.
+- **`src/ui/`** : l'interface React. `Extras.tsx` : le tiroir, les skills, le règlement, la sauvegarde. `Jukebox.tsx` : la
+  liste YouTube et le petit lecteur (`src/audio/music.ts` pilote l'iframe youtube-nocookie par `postMessage`).
+- La note « Comment ça marche » est le meuble `note` (fenêtre `howto` dans `Rooms.tsx`). Lilou se promène quand elle
+  n'a rien à faire (`stroll` dans `world.ts`). Le panneau de droite se replie (`panelOpen`, touche P).
 
 ## Les règles
 
 - **Français, tutoiement, phrases courtes** dans tout ce que l'utilisatrice lit. Lilou est une femme : accords au féminin.
-- **Moins de données** : rien côté serveur ; pas de musique ni de voix (fichiers retirés) ; pas d'image externe.
+- **Moins de données** : rien côté serveur ; pas de fichier de musique ni de voix ; la musique vient des liens YouTube
+  de l'utilisatrice (youtube-nocookie.com, seule exception à la CSP : `frame-src`) ; pas d'image externe.
 - **Sécurité** : jamais de secret dans le dépôt (`.dev.vars` est ignoré) ; les pages HTML créées par l'équipe s'affichent
   dans un iframe `sandbox` sans `allow-same-origin`.
 - **zustand** : un sélecteur qui renvoie un nouveau tableau ou objet passe par `useShallow`.

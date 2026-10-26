@@ -1,10 +1,11 @@
 // Les appels qui sortent du navigateur :
 //   - au Worker Cloudflare (/api/…), avec le code d'accès : l'IA gratuite, la recherche web, la lecture des pages ;
 //   - à l'API Claude, directement, avec ta clé API Claude (si tu t'es connectée à Claude) : la clé ne passe
-//     jamais par le serveur.
+//     jamais par le serveur ;
+//   - sur ton ordinateur (npm start), à Ollama, l'IA gratuite qui tourne sur ton PC, par le serveur local.
 import { lsGet, lsSet } from './db.ts';
 
-export interface ModelInfo { id: string; label: string; provider: 'cloudflare' | 'claude' }
+export interface ModelInfo { id: string; label: string; provider: 'cloudflare' | 'claude' | 'ollama' }
 
 export const MODELS: ModelInfo[] = [
   { id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', label: 'IA gratuite · Llama 3.3 70B (recommandé)', provider: 'cloudflare' },
@@ -13,7 +14,17 @@ export const MODELS: ModelInfo[] = [
   { id: 'claude-haiku-5-5', label: 'Claude Haiku 5.5 (ta clé API Claude, économe)', provider: 'claude' },
 ];
 
-export const modelInfo = (id: string) => MODELS.find((m) => m.id === id);
+/** Les modèles installés dans Ollama (sur ton ordinateur) : leur identifiant commence par « ollama: ». */
+let ollamaModels: ModelInfo[] = [];
+export const OLLAMA_PREFIX = 'ollama:';
+export const setOllamaModels = (names: string[]) => {
+  ollamaModels = names.map((n) => ({ id: OLLAMA_PREFIX + n, label: `IA gratuite sur ton PC · ${n}`, provider: 'ollama' as const }));
+};
+/** Les modèles proposés : sur ton ordinateur avec l'IA gratuite, ceux d'Ollama ; en ligne, Cloudflare et Claude. */
+export const availableModels = (local: boolean): ModelInfo[] => (local ? ollamaModels : MODELS);
+
+export const modelInfo = (id: string): ModelInfo | undefined =>
+  MODELS.find((m) => m.id === id) ?? ollamaModels.find((m) => m.id === id) ?? (id.startsWith(OLLAMA_PREFIX) ? { id, label: id.slice(OLLAMA_PREFIX.length), provider: 'ollama' } : undefined);
 
 export const getCode = () => lsGet<string>('code', '');
 export const setCode = (c: string) => lsSet('code', c.trim());
@@ -112,6 +123,47 @@ export const claude = {
     const text = (d.content ?? []).filter((c) => c.type === 'text').map((c) => c.text ?? '').join('');
     const total = (d.usage?.input_tokens ?? 0) + (d.usage?.output_tokens ?? 0);
     return { text, usage: { total_tokens: total }, model };
+  },
+};
+
+// ── Ollama : l'IA gratuite sur ton ordinateur (par le serveur local, qui la relaie) ──
+export const ollama = {
+  /** Les modèles installés (vide si Ollama n'est pas lancé). */
+  async models(): Promise<string[]> {
+    try {
+      const r = await fetch('/api/ollama/tags', { headers: { 'x-code': 'local' } });
+      if (!r.ok) return [];
+      const d = (await r.json()) as { models?: { name?: string; size?: number }[] };
+      // les plus légers d'abord : ils répondent plus vite sur un ordinateur portable
+      return (d.models ?? []).filter((m) => m.name && !/embed/i.test(m.name)).sort((a, b) => (a.size ?? 0) - (b.size ?? 0)).map((m) => m.name!);
+    } catch { return []; }
+  },
+  async chat(model: string, messages: ChatMsg[], signal?: AbortSignal, json = false): Promise<ChatOut> {
+    const name = model.startsWith(OLLAMA_PREFIX) ? model.slice(OLLAMA_PREFIX.length) : model;
+    let res: Response;
+    try {
+      res = await fetch('/api/ollama/chat', {
+        method: 'POST', signal,
+        headers: { 'Content-Type': 'application/json', 'x-code': 'local' },
+        body: JSON.stringify({
+          model: name, messages, stream: false, think: false, keep_alive: '20m',
+          ...(json ? { format: 'json' } : {}),
+          options: { temperature: 0.3, num_ctx: 8192 },
+        }),
+      });
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      throw new ApiError(0, 'Le bureau ne joint plus le serveur local : relance « npm start ».');
+    }
+    let d: { message?: { content?: string }; error?: string; prompt_eval_count?: number; eval_count?: number } = {};
+    try { d = await res.json(); } catch { /* vide */ }
+    if (!res.ok) {
+      if (res.status === 404 || /not found/i.test(d.error ?? '')) throw new ApiError(404, `Le modèle « ${name} » n’est pas installé dans Ollama. Choisis-en un autre dans les réglages.`);
+      throw new ApiError(res.status, d.error ?? `Ollama a répondu une erreur (${res.status}).`);
+    }
+    // un modèle « qui réfléchit » (Qwen 3…) peut écrire sa réflexion avant la réponse : on la retire
+    const text = (d.message?.content ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    return { text, usage: { total_tokens: (d.prompt_eval_count ?? 0) + (d.eval_count ?? 0) }, model: name };
   },
 };
 

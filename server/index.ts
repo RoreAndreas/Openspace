@@ -13,6 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { ClientMsg, ServerMsg } from '../shared/protocol.ts';
+import { readPage, searchWeb, WebError } from '../shared/web.ts';
 import { Bureau } from './bureau.ts';
 import { findClaude } from './claude.ts';
 
@@ -24,10 +25,16 @@ const PORT = Number(process.env.PORT ?? 4848);
 const HOST = '127.0.0.1';
 const DEV_PORT = 5174;
 
+/** L'IA gratuite sur ton ordinateur (Ollama) : le bureau lui parle par ce serveur. */
+const OLLAMA = new URL(process.env.OLLAMA_HOST ? (/^https?:/.test(process.env.OLLAMA_HOST) ? process.env.OLLAMA_HOST : `http://${process.env.OLLAMA_HOST}`) : 'http://127.0.0.1:11434');
+
 const CSP = [
   "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data: blob:",
   "font-src 'self' data:", "media-src 'self' blob: data:", "worker-src 'self' blob:",
-  `connect-src 'self' ws://localhost:${PORT} ws://127.0.0.1:${PORT}`, "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'",
+  `connect-src 'self' ws://localhost:${PORT} ws://127.0.0.1:${PORT} https://api.anthropic.com`,
+  // le jukebox : des vidéos YouTube (sans cookie publicitaire)
+  "frame-src 'self' blob: https://www.youtube-nocookie.com",
+  "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'",
 ].join('; ');
 
 const TYPES: Record<string, string> = {
@@ -59,6 +66,7 @@ await bureau.init();
 const server = http.createServer(async (req, res) => {
   const url0 = new URL(req.url ?? '/', 'http://x');
   if (url0.pathname.startsWith('/apercu/')) { await preview(url0, res); return; }
+  if (url0.pathname.startsWith('/api/')) { await localApi(req, url0, res); return; }
   if (DEV) { res.writeHead(404).end(`Mode développement : le bureau est sur http://localhost:${DEV_PORT}`); return; }
   try {
     const url = url0;
@@ -99,6 +107,59 @@ async function preview(url: URL, res: http.ServerResponse) {
     res.end(body);
   } catch {
     res.writeHead(500, { 'Content-Security-Policy': PREVIEW_CSP }).end();
+  }
+}
+
+// ── L'API locale : la recherche web, la lecture des pages, et l'IA gratuite d'Ollama ──
+// Mêmes adresses que le Worker Cloudflare (/api/search, /api/fetch, /api/ping) : le bureau ne voit pas la différence.
+// Seul le bureau lui-même peut s'en servir : bonne adresse (pas de « DNS rebinding »), bonne origine, et l'en-tête
+// x-code (qu'une autre page ne peut pas envoyer sans y être autorisée).
+const sendJson = (res: http.ServerResponse, status: number, data: unknown) => {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+  res.end(JSON.stringify(data));
+};
+
+function readBody(req: http.IncomingMessage, max = 400_000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks: Buffer[] = [];
+    req.on('data', (c: Buffer) => { size += c.length; if (size > max) { reject(new WebError(413, 'Demande trop longue.')); req.destroy(); } else chunks.push(c); });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
+/** Relaie une demande à Ollama (sans limite de temps : un gros modèle peut réfléchir longtemps). */
+function ollama(method: 'GET' | 'POST', p: string, body: string | null, res: http.ServerResponse) {
+  const r = http.request({ hostname: OLLAMA.hostname, port: OLLAMA.port || 11434, path: p, method, headers: { 'Content-Type': 'application/json' } }, (up) => {
+    res.writeHead(up.statusCode ?? 502, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    up.pipe(res);
+  });
+  r.on('error', () => { if (!res.headersSent) sendJson(res, 503, { error: 'Ollama ne répond pas. Ouvre l’application Ollama sur ton ordinateur, puis réessaie.' }); });
+  // l'onglet fermé ou la mission arrêtée : on arrête aussi Ollama
+  res.on('close', () => { if (!res.writableFinished) r.destroy(); });
+  if (body) r.write(body);
+  r.end();
+}
+
+async function localApi(req: http.IncomingMessage, url: URL, res: http.ServerResponse) {
+  const host = (req.headers.host ?? '').toLowerCase();
+  const okHost = [`localhost:${PORT}`, `127.0.0.1:${PORT}`, ...(DEV ? [`localhost:${DEV_PORT}`, `127.0.0.1:${DEV_PORT}`] : [])].includes(host);
+  const origin = req.headers.origin;
+  if (!okHost || (origin && !allowedOrigins.has(origin)) || req.headers['x-code'] === undefined) { sendJson(res, 403, { error: 'Refusé.' }); return; }
+  try {
+    if (url.pathname === '/api/ping') { sendJson(res, 200, { ok: true, models: [], search: process.env.TAVILY_KEY ? 'tavily' : 'duckduckgo' }); return; }
+    if (url.pathname === '/api/ollama/tags') { ollama('GET', '/api/tags', null, res); return; }
+    if (req.method !== 'POST') { sendJson(res, 405, { error: 'Méthode non autorisée.' }); return; }
+    const raw = await readBody(req);
+    if (url.pathname === '/api/ollama/chat') { ollama('POST', '/api/chat', raw, res); return; }
+    const body = JSON.parse(raw || '{}') as Record<string, unknown>;
+    if (url.pathname === '/api/search') { sendJson(res, 200, await searchWeb(String(body.q ?? ''), process.env.TAVILY_KEY)); return; }
+    if (url.pathname === '/api/fetch') { sendJson(res, 200, await readPage(String(body.url ?? ''))); return; }
+    sendJson(res, 404, { error: 'Inconnu.' });
+  } catch (e) {
+    if (e instanceof WebError) sendJson(res, e.status, { error: e.message });
+    else sendJson(res, 500, { error: e instanceof Error ? e.message : String(e) });
   }
 }
 

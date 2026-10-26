@@ -4,10 +4,11 @@
 //     Cloudflare ou ta clé API Claude.
 // On garde aussi ici la rediffusion d'une mission enregistrée.
 import type { ClientMsg, Logged, MissionInfo, ServerMsg } from '../../shared/protocol.ts';
+import { getClaudeKey, modelInfo, MODELS } from '../local/api.ts';
 import { bureau } from '../local/bureau.ts';
 import { teamInput } from '../local/context.ts';
 import { useDrawer } from '../local/drawer.ts';
-import { useOffice } from '../state/store.ts';
+import { savePref, useOffice } from '../state/store.ts';
 
 let ws: WebSocket | null = null;
 let everConnected = false;
@@ -32,12 +33,38 @@ function sendToBridge(m: ClientMsg) {
 /** Ce qu'on demande avant que le moteur soit prêt : gardé, puis envoyé dès qu'il l'est. */
 let waiting: ClientMsg[] = [];
 const flush = () => { const send = useOffice.getState().send; const list = waiting; waiting = []; for (const m of list) send(m); };
-const startBrowser = () => { void bureau.init().then(flush); };
+const startBrowser = (mode: 'cloud' | 'ollama' = 'cloud') => { void bureau.init(mode).then(flush); };
+
+/** Le levier du bureau : change le cerveau de l'équipe (Claude ↔ IA gratuite). */
+export function pullLever() {
+  const st = useOffice.getState();
+  if (st.busySince !== null) { st.toast('info', 'L’équipe est en pleine mission : attends qu’elle la rende, ou arrête-la, avant de changer de cerveau.'); return false; }
+  if (st.engine === 'cloud') {
+    // en ligne : Claude (ta clé API) ou l'IA gratuite de Cloudflare
+    const onClaude = modelInfo(st.settings.model)?.provider === 'claude';
+    if (!onClaude && !getClaudeKey()) {
+      st.toast('info', 'Pour passer sur Claude en ligne, connecte-toi d’abord à Claude (ta clé API) dans les réglages.');
+      useOffice.setState({ settingsOpen: true });
+      return false;
+    }
+    st.send({ t: 'settings', settings: { model: onClaude ? MODELS[0].id : 'claude-sonnet-5-5' } });
+    st.toast('info', onClaude ? 'Levier baissé : l’équipe passe sur l’IA gratuite.' : 'Levier levé : l’équipe passe sur Claude.');
+    return true;
+  }
+  // sur ton ordinateur : Claude Code (ton compte Claude) ou Ollama (gratuit), on recharge le bureau
+  const next = st.brain === 'claude' ? 'free' : 'claude';
+  savePref('brain', next);
+  useOffice.setState({ brain: next });
+  setTimeout(() => location.reload(), 900);
+  return true;
+}
 
 export function connect() {
   if (!everConnected) useOffice.setState({ send: (m: ClientMsg) => { waiting.push(m); } });
   // sur Cloudflare (ou toute autre adresse), pas de pont local : le bureau tourne dans le navigateur
   if (!isLocalHost()) { startBrowser(); return; }
+  // sur ton ordinateur, le levier est sur « IA gratuite » : l'équipe travaille avec Ollama, dans le navigateur
+  if (useOffice.getState().brain === 'free' && location.port !== '5174') { startBrowser('ollama'); return; }
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const socket = new WebSocket(`${proto}://${location.host}/ws`);
   ws = socket;

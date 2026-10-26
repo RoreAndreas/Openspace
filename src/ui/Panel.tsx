@@ -6,8 +6,7 @@ import { ROLES } from '../../shared/activity.ts';
 import type { Role } from '../../shared/protocol.ts';
 import { sfx } from '../audio/sfx.ts';
 import { robotSprite } from '../engine/robots.ts';
-import { teamList, useOffice, type AgentView } from '../state/store.ts';
-import { EXAMPLES } from './Dialog.tsx';
+import { savePref, teamList, useOffice, type AgentView } from '../state/store.ts';
 import { fmtDate, fmtDuration } from './format.ts';
 import { mdToHtml } from './md.ts';
 import { FileActions } from './Rooms.tsx';
@@ -28,18 +27,38 @@ const STATUS: Record<AgentView['status'], string> = { working: 'Au travail', rep
 
 export function Panel() {
   const mission = useOffice((s) => s.mission);
+  const open = useOffice((s) => s.panelOpen);
   return (
-    <aside className="panel">
-      {mission ? (
-        <>
-          <PlanSection />
-          <TeamSection />
-          <FilesSection />
-          <FeedSection />
-        </>
-      ) : <Welcome />}
+    <aside className={`panel ${open ? '' : 'closed'}`} aria-hidden={!open}>
+      <div className="panel-inner">
+        {mission ? (
+          <>
+            <PlanSection />
+            <TeamSection />
+            <FilesSection />
+            <FeedSection />
+          </>
+        ) : <Welcome />}
+      </div>
     </aside>
   );
+}
+
+/** La languette qui replie ou rouvre le panneau de droite (raccourci : P). */
+export function PanelToggle() {
+  const open = useOffice((s) => s.panelOpen);
+  return (
+    <button className={`panel-toggle ${open ? 'open' : ''}`} title={open ? 'Replier le panneau (P)' : 'Ouvrir le panneau : le plan, l’équipe, les rendus (P)'} aria-label={open ? 'Replier le panneau' : 'Ouvrir le panneau'} onClick={() => togglePanel()}>
+      <span aria-hidden="true">{open ? '›' : '‹'}</span>
+    </button>
+  );
+}
+
+export function togglePanel() {
+  const v = !useOffice.getState().panelOpen;
+  sfx('click');
+  useOffice.setState({ panelOpen: v });
+  savePref('panelOpen', v);
 }
 
 function Welcome() {
@@ -48,21 +67,8 @@ function Welcome() {
   const connection = useOffice((s) => s.connection);
   return (
     <>
-      <section className="card">
-        <h3>Comment ça marche</h3>
-        <ol className="steps">
-          <li><b>Tu dis à Lilou ce que tu veux</b>, au clavier ou à la voix.</li>
-          <li><b>Elle fait le plan et appelle l’analyste</b>, qui file à son poste.</li>
-          <li><b>Tu le regardes bosser</b>, en vrai : chaque bulle, c’est ce qu’il fait à cet instant.</li>
-          <li><b>Ils te rendent le travail</b> : les rapports arrivent dans « Les rendus », à lire ou télécharger.</li>
-        </ol>
-        <p className="small muted">De vrais agents IA (Cloudflare Workers AI). Tes données restent dans ce navigateur.</p>
-      </section>
-      <section className="card">
-        <h3>Des idées de mission</h3>
-        <div className="chips col">
-          {EXAMPLES.map((e) => <button key={e.label} className="chip" onClick={() => { sfx('click'); useOffice.setState({ draft: e.prompt }); }}>{e.label}</button>)}
-        </div>
+      <section className="card hint-card">
+        <p className="small">📝 <b>Comment ça marche ?</b> Clique sur la note jaune posée à côté du bureau de Lilou. Les idées de mission sont en bas, dans le chat.</p>
       </section>
       {connection === 'live' && (
         <section className="card">
