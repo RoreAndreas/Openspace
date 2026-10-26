@@ -56,6 +56,8 @@ class Jukebox {
 
   constructor() {
     if (typeof window !== 'undefined') window.addEventListener('message', (e) => this.onMessage(e));
+    // la liste enregistrée dans ce navigateur s'affiche dès l'ouverture du bureau
+    this.publish();
   }
 
   /** Le petit écran du jukebox (posé par l'interface) : le lecteur YouTube vit dedans. */
