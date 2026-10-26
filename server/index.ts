@@ -153,6 +153,13 @@ async function localApi(req: http.IncomingMessage, url: URL, res: http.ServerRes
     if (req.method !== 'POST') { sendJson(res, 405, { error: 'Méthode non autorisée.' }); return; }
     const raw = await readBody(req);
     if (url.pathname === '/api/ollama/chat') { ollama('POST', '/api/chat', raw, res); return; }
+    if (url.pathname === '/api/ollama/pull') {
+      // installer un modèle : seulement un nom de modèle simple (pas d'adresse)
+      const model = String((JSON.parse(raw || '{}') as { model?: unknown }).model ?? '');
+      if (!/^[a-z0-9][\w.\-]*(:[\w.\-]+)?$/i.test(model)) { sendJson(res, 400, { error: 'Nom de modèle invalide.' }); return; }
+      ollama('POST', '/api/pull', JSON.stringify({ model, stream: true }), res);
+      return;
+    }
     const body = JSON.parse(raw || '{}') as Record<string, unknown>;
     if (url.pathname === '/api/search') { sendJson(res, 200, await searchWeb(String(body.q ?? ''), process.env.TAVILY_KEY)); return; }
     if (url.pathname === '/api/fetch') { sendJson(res, 200, await readPage(String(body.url ?? ''))); return; }

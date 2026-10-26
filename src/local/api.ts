@@ -5,7 +5,7 @@
 //   - sur ton ordinateur (npm start), à Ollama, l'IA gratuite qui tourne sur ton PC, par le serveur local.
 import { lsGet, lsSet } from './db.ts';
 
-export interface ModelInfo { id: string; label: string; provider: 'cloudflare' | 'claude' | 'ollama' }
+export interface ModelInfo { id: string; label: string; provider: 'cloudflare' | 'claude' | 'ollama'; /** la taille du modèle (Ollama), en octets */ size?: number }
 
 export const MODELS: ModelInfo[] = [
   { id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', label: 'IA gratuite · Llama 3.3 70B (recommandé)', provider: 'cloudflare' },
@@ -17,8 +17,19 @@ export const MODELS: ModelInfo[] = [
 /** Les modèles installés dans Ollama (sur ton ordinateur) : leur identifiant commence par « ollama: ». */
 let ollamaModels: ModelInfo[] = [];
 export const OLLAMA_PREFIX = 'ollama:';
-export const setOllamaModels = (names: string[]) => {
-  ollamaModels = names.map((n) => ({ id: OLLAMA_PREFIX + n, label: `IA gratuite sur ton PC · ${n}`, provider: 'ollama' as const }));
+/** Au-delà de cette taille, un modèle est trop lourd pour la plupart des ordinateurs portables (8 Go). */
+export const HEAVY_MODEL = 8e9;
+/** Les modèles légers qu'on propose d'installer d'un clic (le premier est recommandé). */
+export const LIGHT_MODELS: { name: string; label: string }[] = [
+  { name: 'qwen3:4b', label: 'Qwen 3, 4B (2,5 Go, recommandé)' },
+  { name: 'llama3.2:3b', label: 'Llama 3.2, 3B (2 Go, le plus rapide)' },
+];
+const gb = (n: number) => `${(n / 1e9).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Go`;
+export const setOllamaModels = (list: { name: string; size: number }[]) => {
+  ollamaModels = list.map((m) => ({
+    id: OLLAMA_PREFIX + m.name, provider: 'ollama' as const, size: m.size,
+    label: `IA gratuite sur ton PC · ${m.name}${m.size ? ` (${gb(m.size)}${m.size > HEAVY_MODEL ? ', trop lourd pour un portable ?' : ''})` : ''}`,
+  }));
 };
 /** Les modèles proposés : sur ton ordinateur avec l'IA gratuite, ceux d'Ollama ; en ligne, Cloudflare et Claude. */
 export const availableModels = (local: boolean): ModelInfo[] => (local ? ollamaModels : MODELS);
@@ -129,14 +140,48 @@ export const claude = {
 // ── Ollama : l'IA gratuite sur ton ordinateur (par le serveur local, qui la relaie) ──
 export const ollama = {
   /** Les modèles installés (vide si Ollama n'est pas lancé). */
-  async models(): Promise<string[]> {
+  async models(): Promise<{ name: string; size: number }[]> {
     try {
       const r = await fetch('/api/ollama/tags', { headers: { 'x-code': 'local' } });
       if (!r.ok) return [];
       const d = (await r.json()) as { models?: { name?: string; size?: number }[] };
       // les plus légers d'abord : ils répondent plus vite sur un ordinateur portable
-      return (d.models ?? []).filter((m) => m.name && !/embed/i.test(m.name)).sort((a, b) => (a.size ?? 0) - (b.size ?? 0)).map((m) => m.name!);
+      return (d.models ?? []).filter((m) => m.name && !/embed/i.test(m.name)).sort((a, b) => (a.size ?? 0) - (b.size ?? 0)).map((m) => ({ name: m.name!, size: m.size ?? 0 }));
     } catch { return []; }
+  },
+  /** Installe un modèle (il se télécharge dans Ollama) ; onProgress reçoit la part faite (0 à 1). */
+  async pull(name: string, onProgress: (done: number, status: string) => void, signal?: AbortSignal) {
+    let res: Response;
+    try {
+      res = await fetch('/api/ollama/pull', { method: 'POST', signal, headers: { 'Content-Type': 'application/json', 'x-code': 'local' }, body: JSON.stringify({ model: name, stream: true }) });
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      throw new ApiError(0, 'Le bureau ne joint plus le serveur local : relance « npm start ».');
+    }
+    if (!res.ok || !res.body) {
+      let msg = '';
+      try { msg = ((await res.json()) as { error?: string }).error ?? ''; } catch { /* vide */ }
+      throw new ApiError(res.status, msg || `Ollama a refusé le téléchargement (${res.status}).`);
+    }
+    // Ollama envoie une ligne JSON par étape : { status, total, completed } ou { error }
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i: number;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i).trim();
+        buf = buf.slice(i + 1);
+        if (!line) continue;
+        let d: { status?: string; total?: number; completed?: number; error?: string };
+        try { d = JSON.parse(line); } catch { continue; }
+        if (d.error) throw new ApiError(500, `Ollama : ${d.error}`);
+        onProgress(d.total ? (d.completed ?? 0) / d.total : d.status === 'success' ? 1 : 0, d.status ?? '');
+      }
+    }
   },
   async chat(model: string, messages: ChatMsg[], signal?: AbortSignal, json = false): Promise<ChatOut> {
     const name = model.startsWith(OLLAMA_PREFIX) ? model.slice(OLLAMA_PREFIX.length) : model;
@@ -159,6 +204,10 @@ export const ollama = {
     try { d = await res.json(); } catch { /* vide */ }
     if (!res.ok) {
       if (res.status === 404 || /not found/i.test(d.error ?? '')) throw new ApiError(404, `Le modèle « ${name} » n’est pas installé dans Ollama. Choisis-en un autre dans les réglages.`);
+      // le modèle ne tient pas dans la mémoire de l'ordinateur
+      if (/out of memory|failed to allocate|unable to allocate|requires more system memory|insufficient memory|not enough memory/i.test(d.error ?? '')) {
+        throw new ApiError(507, `Le modèle « ${name} » est trop gros pour la mémoire de ton ordinateur. Installe un modèle léger dans les réglages (⚙️, puis « Installer Qwen 3, 4B »), puis relance la mission.`);
+      }
       throw new ApiError(res.status, d.error ?? `Ollama a répondu une erreur (${res.status}).`);
     }
     // un modèle « qui réfléchit » (Qwen 3…) peut écrire sa réflexion avant la réponse : on la retire

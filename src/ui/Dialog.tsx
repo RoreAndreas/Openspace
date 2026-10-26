@@ -6,7 +6,7 @@ import { ROLES } from '../../shared/activity.ts';
 import { sfx } from '../audio/sfx.ts';
 import { world } from '../engine/instance.ts';
 import { robotSprite } from '../engine/robots.ts';
-import { getCode } from '../local/api.ts';
+import { getCode, HEAVY_MODEL, modelInfo } from '../local/api.ts';
 import { useOffice } from '../state/store.ts';
 import { tidy } from './tidy.ts';
 import { dictationHelp, useDictation } from './voice.ts';
@@ -97,12 +97,14 @@ export function Dialog() {
   const chef = useOffice((s) => s.chef);
   const final = useOffice((s) => s.final);
   const tour = useOffice((s) => s.tour);
+  const settingsModel = useOffice((s) => s.settings.model);
 
   let text: string;
   if (tour) text = tour.text;
   else if (connection === 'offline') text = 'Je n’arrive pas à joindre le serveur. Vérifie ta connexion, puis recharge la page.';
   else if (engine === 'claude-code' && claude && !claude.found) text = 'Je ne trouve pas Claude Code sur cet ordinateur. Installe-le (claude.com/claude-code), lance « claude » une fois pour te connecter à ton compte Claude, puis relance « npm start ». En attendant, tire le levier à côté du serveur : on travaillera avec l’IA gratuite (Ollama).';
   else if (engine === 'ollama' && claude && !claude.found) text = 'Je ne trouve pas Ollama, l’IA gratuite de ton ordinateur. Ouvre l’application Ollama (ou installe-la sur ollama.com, sans droits d’administrateur), installe un modèle (par exemple : ollama pull qwen3:4b), puis recharge la page. Ou abaisse le levier, à côté du serveur, pour revenir sur Claude.';
+  else if (engine === 'ollama' && !mission && (modelInfo(settingsModel)?.size ?? 0) > HEAVY_MODEL) text = `Attention : le modèle « ${settingsModel.replace('ollama:', '')} » est trop lourd pour la mémoire de la plupart des ordinateurs portables. Ouvre les réglages (⚙️) et clique sur « Installer Qwen 3, 4B » : il est léger et rapide. Ensuite, dis-moi ce dont tu as besoin.`;
   else if (engine === 'cloud' && !mission && !getCode()) text = 'Salut ! Moi, c’est Lilou, la cheffe de l’open space. Pour commencer, entre le code d’accès dans les réglages (⚙️ en haut à droite).';
   else if (!mission) text = `Salut ! Moi, c’est Lilou, la cheffe de l’open space. Dis-moi ce dont tu as besoin : je confie le travail à mon analyste, et tu le regardes faire.${engine === 'ollama' ? ' Aujourd’hui, on travaille avec l’IA gratuite de ton ordinateur : c’est plus lent, sois patiente.' : ''}`;
   else if (chef.typing) text = stripMd(chef.typing);

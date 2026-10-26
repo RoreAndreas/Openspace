@@ -1,5 +1,12 @@
 # Les versions
 
+## Open space v0.3.1 (26 octobre 2026)
+
+- Un modèle Ollama trop gros pour la mémoire du PC donne un message clair, et les réglages s'ouvrent.
+- Installer un modèle léger d'un clic, dans les réglages (Qwen 3 4B ou Llama 3.2 3B), avec la progression.
+- La taille de chaque modèle est affichée ; Lilou prévient quand le modèle choisi est trop lourd.
+- Au lancement, Claude Code est bien trouvé sous Windows (dans `.local\bin`), et l'avertissement de construction a disparu.
+
 ## Open space v0.3.0 (26 octobre 2026)
 
 - **Le levier**, à côté du serveur : il change le cerveau de l'équipe. Orange : Claude. Vert : l'IA gratuite.

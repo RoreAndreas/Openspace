@@ -4,6 +4,7 @@
 // Tout est rangé dans ce navigateur (IndexedDB) : missions, fichiers, enregistrements. Rien sur le serveur.
 import { countStats, emptyStats, NAMES } from '../../shared/activity.ts';
 import type { ClientMsg, FileInfo, Logged, MissionInfo, OfficeEvent, ServerMsg, Settings, TeamEntry, VersionInfo } from '../../shared/protocol.ts';
+import { playReplay } from '../net/link.ts';
 import { useOffice } from '../state/store.ts';
 import { runChef, errorText, type MissionFiles, type TeamCtx } from './agent.ts';
 import { api, ApiError, availableModels, claude, getClaudeKey, getCode, modelInfo, MODELS, ollama, setOllamaModels, type ChatMsg } from './api.ts';
@@ -123,7 +124,6 @@ class LocalBureau {
       case 'versions': this.out({ t: 'versions', missionId: m.missionId, file: m.file, list: await this.versions(m.missionId, m.file) }); return;
       case 'team_history': this.out({ t: 'team_history', entries: await this.teamHistory() }); return;
       case 'replay': {
-        const { playReplay } = await import('../net/link.ts');
         const mission = this.missions.find((x) => x.id === m.missionId);
         const log = await this.logOf(m.missionId);
         if (!mission || !log.length) throw new Error('Cette mission n’a pas été enregistrée.');
@@ -222,7 +222,7 @@ class LocalBureau {
     } catch (e) {
       const stopped = ctrl.signal.aborted;
       if (!stopped) this.record(cur, { k: 'error', message: errorText(e) });
-      if (e instanceof ApiError && e.status === 401) useOffice.setState({ settingsOpen: true });
+      if (e instanceof ApiError && (e.status === 401 || e.status === 507)) useOffice.setState({ settingsOpen: true });
       this.finish(cur, false, stopped ? 'Mission arrêtée.' : errorText(e), Date.now() - t0, stopped);
     }
   }

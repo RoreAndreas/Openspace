@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { sfx } from '../audio/sfx.ts';
 import { savePref, useOffice } from '../state/store.ts';
-import { api, availableModels, claude, getClaudeKey, getCode, modelInfo, MODELS, setClaudeKey, setCode } from '../local/api.ts';
+import { api, availableModels, claude, getClaudeKey, getCode, HEAVY_MODEL, LIGHT_MODELS, modelInfo, MODELS, ollama, OLLAMA_PREFIX, setClaudeKey, setCode } from '../local/api.ts';
 import { bureau } from '../local/bureau.ts';
 import { pullLever } from '../net/link.ts';
 import { dbClear, lsClear } from '../local/db.ts';
@@ -220,6 +220,48 @@ function ClaudeLogin() {
   );
 }
 
+/** Installer un modèle léger dans Ollama, d'un clic (il se télécharge sur ton ordinateur). */
+function OllamaInstall() {
+  const model = useOffice((s) => s.settings.model);
+  const send = useOffice((s) => s.send);
+  const [job, setJob] = useState<{ name: string; done: number; status: string } | null>(null);
+  const [err, setErr] = useState('');
+  const installed = new Set(availableModels(true).map((m) => m.id.slice(OLLAMA_PREFIX.length)));
+  const heavy = (modelInfo(model)?.size ?? 0) > HEAVY_MODEL;
+  const install = async (name: string) => {
+    setErr('');
+    setJob({ name, done: 0, status: 'Démarrage…' });
+    try {
+      await ollama.pull(name, (done, status) => setJob({ name, done, status }));
+      await bureau.refreshOllama();
+      send({ t: 'settings', settings: { model: OLLAMA_PREFIX + name } });
+      sfx('check');
+      setJob(null);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      setJob(null);
+    }
+  };
+  return (
+    <div className="field">
+      <span>Installer un modèle léger</span>
+      {heavy && <small className="err-text">Le modèle choisi est très lourd : sur un ordinateur portable, il risque de manquer de mémoire. Installe plutôt un modèle léger.</small>}
+      <div className="row">
+        {LIGHT_MODELS.map((m) => installed.has(m.name)
+          ? <span key={m.name} className="ok-text small">✓ {m.label} : installé</span>
+          : <button key={m.name} className="btn small primary" disabled={!!job} onClick={() => void install(m.name)}>⬇ Installer {m.label}</button>)}
+      </div>
+      {job && (
+        <>
+          <div className="progress"><i style={{ width: `${Math.round(job.done * 100)}%` }} /></div>
+          <small className="muted">{job.name} : {job.done > 0 ? `${Math.round(job.done * 100)} %` : job.status}. Reste sur cette page : le téléchargement prend quelques minutes.</small>
+        </>
+      )}
+      {err && <small className="err-text">{err}</small>}
+    </div>
+  );
+}
+
 /** Le levier, en version réglages : Claude ou l'IA gratuite. */
 function Brain() {
   const engine = useOffice((s) => s.engine);
@@ -276,6 +318,7 @@ export function SettingsPanel() {
                 </select>
                 <small className="muted">Les plus légers sont en premier : sur un ordinateur portable, un modèle de 3 à 8 milliards de paramètres (par exemple qwen3:4b ou llama3.2:3b) répond bien plus vite.</small>
               </label>
+              <OllamaInstall />
               <div className="field">
                 <span>Les permissions</span>
                 <label className="radio"><input type="radio" checked={settings.permission === 'auto'} onChange={() => send({ t: 'settings', settings: { permission: 'auto' } })} /> L’équipe écrit ses fichiers seule</label>
