@@ -88,6 +88,9 @@ npm install
 npm start
 ```
 
+Sous Windows, tu peux aussi double-cliquer sur **`Lancer l'open space.bat`** : il vérifie Node et Claude Code, installe
+ce qu'il faut et lance le bureau.
+
 Le bureau s'ouvre sur http://localhost:4848. Il reconnaît Claude Code tout seul, et les réglages affichent « l'équipe travaille avec ton compte Claude ».
 
 - **Où vont les fichiers** : dans `Documents/Open space/Missions`, un dossier par mission.
