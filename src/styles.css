@@ -700,20 +700,25 @@ input[type='color'] { width: 34px; height: 34px; padding: 0; border: 1px solid v
 .jk-del:hover { color: #ffb0b0; border-color: rgba(255, 93, 93, 0.4); }
 
 /* ── Le petit lecteur du jukebox, en bas à gauche du bureau ── */
-.music-dock {
-  position: absolute; left: 14px; bottom: 14px; z-index: 6; width: 268px;
-  border: 1px solid var(--line2); border-radius: 12px; overflow: hidden;
-  background: rgba(12, 12, 16, 0.94); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 95, 162, 0.08);
-  transition: opacity 0.2s ease, transform 0.2s ease, width 0.2s ease;
-}
-.music-dock:not(.shown) { opacity: 0; pointer-events: none; transform: translateY(8px); position: fixed; left: -9999px; }
-.music-dock.small { width: 200px; }
+.music-dock { position: absolute; left: 14px; bottom: 14px; z-index: 6; transition: opacity 0.2s ease; }
+.music-dock:not(.shown) { opacity: 0; pointer-events: none; position: fixed; left: -9999px; }
 .music-dock.filming { left: 10px; bottom: 10px; }
-.dock-head { display: flex; align-items: center; gap: 2px; padding: 4px 4px 4px 10px; border-bottom: 1px solid var(--line); }
-.dock-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 11.5px var(--font); color: var(--orange2); }
-.dock-head button { width: 24px; height: 24px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 13px; }
-.dock-head button:hover { background: var(--surface2); color: var(--ink); }
-.dock-screen { aspect-ratio: 16 / 9; background: #000; }
+.dock-bot { position: relative; display: block; padding: 0; border: 0; background: transparent; cursor: pointer; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.45)); }
+.dock-bot svg { display: block; image-rendering: pixelated; }
+.music-dock.playing .dock-bot { animation: bot-fly 2.4s ease-in-out infinite; }
+.dock-bot:hover { filter: drop-shadow(0 0 10px rgba(255, 138, 61, 0.6)); }
+.bot-flame { animation: bot-flame 0.18s steps(2) infinite; }
+.music-dock:not(.playing) .bot-flame { display: none; }
+.bot-notes { position: absolute; left: 50%; top: -4px; pointer-events: none; }
+.bot-notes i { position: absolute; font-style: normal; font-size: 14px; color: var(--orange2); opacity: 0; }
+.music-dock.playing .bot-notes i { animation: bot-note 2.1s ease-out infinite; }
+.bot-notes i:nth-child(2) { color: #ff5fa2; animation-delay: 0.7s !important; }
+.bot-notes i:nth-child(3) { color: #3ddc97; animation-delay: 1.4s !important; }
+@keyframes bot-fly { 0%, 100% { transform: translate(0, 0) rotate(-3deg); } 50% { transform: translate(6px, -10px) rotate(3deg); } }
+@keyframes bot-flame { to { opacity: 0.4; } }
+@keyframes bot-note { 0% { opacity: 0; transform: translate(-4px, 0) scale(0.7); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(14px, -38px) scale(1.15) rotate(15deg); } }
+/* la vidéo YouTube joue le son, cachée sous le robot (pas de display: none, sinon le lecteur peut s'arrêter) */
+.dock-screen { position: absolute; left: 0; bottom: 0; width: 2px; height: 2px; opacity: 0; pointer-events: none; overflow: hidden; }
 .yt-frame { display: block; width: 100%; height: 100%; border: 0; }
 
 /* ── Comment ça marche, le levier ── */
@@ -721,4 +726,4 @@ input[type='color'] { width: 34px; height: 34px; padding: 0; border: 1px solid v
 .seg.brain { display: flex; flex-wrap: wrap; }
 .seg.brain button.on.claude { background: rgba(255, 138, 61, 0.16); box-shadow: inset 0 0 0 1px rgba(255, 138, 61, 0.55); color: var(--ink); }
 .seg.brain button.on.free { background: rgba(61, 220, 151, 0.14); box-shadow: inset 0 0 0 1px rgba(61, 220, 151, 0.5); color: var(--ink); }
-@media (max-width: 760px) { .panel-toggle { display: none; } .music-dock { width: 200px; left: 8px; bottom: 8px; } }
+@media (max-width: 760px) { .panel-toggle { display: none; } .music-dock { left: 8px; bottom: 8px; } }

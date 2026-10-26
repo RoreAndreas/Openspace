@@ -72,23 +72,33 @@ export function JukeboxRoom() {
   );
 }
 
-/** Le petit lecteur, en bas à gauche du bureau (il reste là quand on ferme la fenêtre du jukebox). */
+/** Le petit robot du jukebox, en bas à gauche du bureau : il vole tant que la musique joue, des notes sortent de sa
+ *  tête, et un clic ouvre le jukebox. La vidéo YouTube reste cachée sous lui (c'est elle qui joue le son). */
 export function MusicDock() {
   const loaded = useOffice((s) => s.music.loaded);
+  const playing = useOffice((s) => s.music.playing);
   const title = useOffice((s) => s.music.list[s.music.index]?.title ?? '');
   const filming = useOffice((s) => s.filming);
-  const [small, setSmall] = useState(false);
   const host = useCallback((el: HTMLDivElement | null) => jukebox.attach(el), []);
   return (
-    <div className={`music-dock ${loaded ? 'shown' : ''} ${small ? 'small' : ''} ${filming ? 'filming' : ''}`} aria-hidden={!loaded}>
-      <div className="dock-head">
-        <span className="dock-title" title={title}>♪ {title}</span>
-        <button title={small ? 'Agrandir' : 'Réduire'} onClick={() => setSmall(!small)}>{small ? '▢' : '–'}</button>
-        <button title="La liste du jukebox" onClick={() => { sfx('open'); useOffice.setState({ modal: { kind: 'jukebox' } }); }}>☰</button>
-        <button title="Éteindre le jukebox" onClick={() => jukebox.stop()}>×</button>
-      </div>
+    <div className={`music-dock ${loaded ? 'shown' : ''} ${playing ? 'playing' : ''} ${filming ? 'filming' : ''}`} aria-hidden={!loaded}>
+      <button className="dock-bot" title={`♪ ${title} · ouvrir le jukebox`} onClick={() => { sfx('open'); useOffice.setState({ modal: { kind: 'jukebox' } }); }}>
+        <span className="bot-notes" aria-hidden><i>♪</i><i>♫</i><i>♪</i></span>
+        <svg viewBox="0 0 16 16" width="56" height="56" shapeRendering="crispEdges" aria-hidden>
+          <rect x="7" y="0" width="2" height="2" fill="#ff8a3d" />
+          <rect x="3" y="2" width="10" height="7" fill="#d9d4e8" />
+          <rect x="4" y="3" width="8" height="5" fill="#1c1826" />
+          <rect x="5" y="4" width="2" height="2" fill="#3ddc97" />
+          <rect x="9" y="4" width="2" height="2" fill="#3ddc97" />
+          <rect x="6" y="7" width="4" height="1" fill="#ff5fa2" />
+          <rect x="5" y="9" width="6" height="4" fill="#b8b2cc" />
+          <rect x="2" y="10" width="2" height="2" fill="#d9d4e8" />
+          <rect x="12" y="10" width="2" height="2" fill="#d9d4e8" />
+          <rect x="6" y="13" width="4" height="1" fill="#ff8a3d" />
+          <rect className="bot-flame" x="7" y="14" width="2" height="2" fill="#ffd23d" />
+        </svg>
+      </button>
       <div className="dock-screen" ref={host} />
-      <Controls small />
     </div>
   );
 }
