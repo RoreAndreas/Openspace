@@ -1,5 +1,16 @@
 # Les versions
 
+## Open space v0.3.0 (26 octobre 2026)
+
+- **Le levier**, à côté du serveur : il change le cerveau de l'équipe. Orange : Claude. Vert : l'IA gratuite.
+- **L'IA gratuite sur ton ordinateur** : Ollama (sans compte, sans droits d'administrateur). Le serveur local relaie aussi la recherche web et la lecture des pages.
+- **La note « Comment ça marche »**, sur un pupitre à côté du bureau de Lilou.
+- **Lilou se promène** quand elle n'a rien à faire : la machine à café, la fontaine, les fenêtres, le jukebox… Elle a aussi une nouvelle veste blanche.
+- **Le jukebox joue tes liens YouTube** : lecture, pause, suivant, en boucle (la liste ou un morceau), aléatoire, volume. Un petit lecteur reste en bas à gauche.
+- **Des idées de mission en bulles grises**, dans le chat en bas ; après une mission, des idées de retouche.
+- **Le panneau de droite se replie** (la languette, le bouton ▥ ou la touche P), et un bouton plein écran.
+- Le chat ne déborde plus sur un téléphone.
+
 ## Open space v0.2.0 (25 octobre 2026)
 
 La version Cloudflare, pour une responsable marketing et communication.

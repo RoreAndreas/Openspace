@@ -8,7 +8,8 @@ import { savePref, useOffice, type Tod } from './state/store.ts';
 import { AskBar, Dialog } from './ui/Dialog.tsx';
 import { FinalCard, History, SettingsPanel, Toasts, Viewer } from './ui/Modals.tsx';
 import { Office } from './ui/Office.tsx';
-import { Panel } from './ui/Panel.tsx';
+import { MusicDock } from './ui/Jukebox.tsx';
+import { Panel, PanelToggle, togglePanel } from './ui/Panel.tsx';
 import { Strips } from './ui/Strips.tsx';
 import { party } from './ui/interact.ts';
 import { Rooms } from './ui/Rooms.tsx';
@@ -46,6 +47,7 @@ function ExitFilming() {
 export function App() {
   const vertical = useOffice((s) => s.vertical || s.portrait);
   const filming = useOffice((s) => s.filming);
+  const panelOpen = useOffice((s) => s.panelOpen);
 
   // sur un écran en hauteur (téléphone), la mise en page verticale s'impose
   useEffect(() => {
@@ -77,6 +79,7 @@ export function App() {
       if (k === 't') { if (s.tour) stopTour(); else void startTour(); return; }
       if (k === 'c') { useOffice.setState({ cameraAuto: !s.cameraAuto }); savePref('cameraAuto', !s.cameraAuto); sfx('click'); return; }
       if (k === 'j') { jukebox.toggle(); return; }
+      if (k === 'p') { togglePanel(); return; }
       if (k === 'v') { useOffice.setState({ vertical: !s.vertical }); savePref('vertical', !s.vertical); sfx('click'); }
       else if (k === 'f') { useOffice.setState({ filming: !s.filming }); sfx('click'); }
       else if (k === 'n') { const n = TOD_NEXT[s.tod]; useOffice.setState({ tod: n }); savePref('tod', n); sfx('click'); }
@@ -88,7 +91,7 @@ export function App() {
   }, []);
 
   return (
-    <div className={`app ${vertical ? 'vertical' : ''} ${filming ? 'filming' : ''}`}>
+    <div className={`app ${vertical ? 'vertical' : ''} ${filming ? 'filming' : ''} ${panelOpen ? '' : 'panel-closed'}`}>
       <div className="frame">
         <TopBar />
         <div className="main">
@@ -97,6 +100,8 @@ export function App() {
             {vertical && <Strips />}
             <AskBar />
             <FinalCard />
+            <MusicDock />
+            {!vertical && !filming && <PanelToggle />}
           </div>
           {!vertical && !filming && <Panel />}
         </div>

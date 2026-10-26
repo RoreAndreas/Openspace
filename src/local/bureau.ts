@@ -6,7 +6,7 @@ import { countStats, emptyStats, NAMES } from '../../shared/activity.ts';
 import type { ClientMsg, FileInfo, Logged, MissionInfo, OfficeEvent, ServerMsg, Settings, TeamEntry, VersionInfo } from '../../shared/protocol.ts';
 import { useOffice } from '../state/store.ts';
 import { runChef, errorText, type MissionFiles, type TeamCtx } from './agent.ts';
-import { api, ApiError, claude, getClaudeKey, getCode, modelInfo, MODELS, type ChatMsg } from './api.ts';
+import { api, ApiError, availableModels, claude, getClaudeKey, getCode, modelInfo, MODELS, ollama, setOllamaModels, type ChatMsg } from './api.ts';
 import { dbDel, dbGet, dbSet, lsGet, lsSet } from './db.ts';
 import { download, zip } from './zip.ts';
 
@@ -56,23 +56,53 @@ export function safeName(raw: string) {
 const ext = (n: string) => (n.split('.').pop() ?? '').toLowerCase();
 
 class LocalBureau {
-  settings: Settings = { ...DEFAULT_SETTINGS, ...lsGet<Partial<Settings>>('settings', {}) };
+  settings: Settings = { ...DEFAULT_SETTINGS };
   missions: MissionInfo[] = [];
   current: Current | null = null;
+  /** sur ton ordinateur, avec l'IA gratuite d'Ollama (au lieu de Cloudflare) */
+  local = false;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
   private out(m: ServerMsg) { useOffice.getState().receive(m); }
+  private get settingsKey() { return this.local ? 'settings-ollama' : 'settings'; }
+  private models() { return availableModels(this.local); }
 
-  async init() {
-    if (!MODELS.some((m) => m.id === this.settings.model)) this.settings.model = DEFAULT_SETTINGS.model;
+  /** Démarre le bureau dans le navigateur : en ligne (Cloudflare), ou sur ton ordinateur avec Ollama. */
+  async init(mode: 'cloud' | 'ollama' = 'cloud') {
+    this.local = mode === 'ollama';
+    if (this.local) setOllamaModels(await ollama.models());
+    this.settings = { ...DEFAULT_SETTINGS, ...lsGet<Partial<Settings>>(this.settingsKey, {}) };
+    const models = this.models();
+    if (!models.some((m) => m.id === this.settings.model)) this.settings.model = models[0]?.id ?? (this.local ? '' : DEFAULT_SETTINGS.model);
     const list = await dbGet<MissionInfo[]>('missions');
     this.missions = Array.isArray(list) ? list.map((m) => (m.status === 'working' ? { ...m, status: 'stopped' as const } : m)) : [];
-    useOffice.setState({ connection: 'live', engine: 'cloud', send: (m: ClientMsg) => { void this.handle(m).catch((e) => useOffice.getState().toast('error', errorText(e))); } });
-    this.out({ t: 'hello', claude: { found: true, version: this.modelLabel(), path: this.engineLabel() }, dir: 'ce navigateur', settings: this.settings, quota: null, missions: this.list(), current: null });
+    useOffice.setState({ connection: 'live', engine: this.local ? 'ollama' : 'cloud', send: (m: ClientMsg) => { void this.handle(m).catch((e) => useOffice.getState().toast('error', errorText(e))); } });
+    this.hello(null);
   }
 
-  modelLabel() { return MODELS.find((m) => m.id === this.settings.model)?.label.split(' (')[0].replace('IA gratuite · ', '') ?? this.settings.model; }
-  engineLabel() { return modelInfo(this.settings.model)?.provider === 'claude' ? 'Claude (ta clé API)' : 'Cloudflare Workers AI'; }
+  private hello(current: { mission: MissionInfo; log: Logged[] } | null) {
+    const found = !this.local || this.models().length > 0;
+    this.out({ t: 'hello', claude: { found, version: this.modelLabel(), path: this.engineLabel() }, dir: 'ce navigateur', settings: this.settings, quota: null, missions: this.list(), current });
+  }
+
+  /** Relit la liste des modèles d'Ollama (après une installation, par exemple). */
+  async refreshOllama() {
+    if (!this.local) return;
+    setOllamaModels(await ollama.models());
+    const models = this.models();
+    if (!models.some((m) => m.id === this.settings.model)) { this.settings.model = models[0]?.id ?? ''; lsSet(this.settingsKey, this.settings); }
+    this.hello(this.current ? { mission: this.current.mission, log: this.current.log } : null);
+  }
+
+  modelLabel() {
+    const info = modelInfo(this.settings.model);
+    if (info?.provider === 'ollama') return info.id.slice('ollama:'.length);
+    return MODELS.find((m) => m.id === this.settings.model)?.label.split(' (')[0].replace('IA gratuite · ', '') ?? this.settings.model;
+  }
+  engineLabel() {
+    const p = modelInfo(this.settings.model)?.provider;
+    return p === 'claude' ? 'Claude (ta clé API)' : p === 'ollama' || this.local ? 'Ollama, sur ton ordinateur' : 'Cloudflare Workers AI';
+  }
   list() { return [...this.missions].sort((a, b) => b.createdAt - a.createdAt); }
   rules() { return lsGet<string>('rules', '').replace(/\(par exemple[^)]*\)/g, '').trim(); }
 
@@ -103,12 +133,12 @@ class LocalBureau {
       case 'settings': {
         const p = m.settings ?? {};
         this.settings = {
-          model: typeof p.model === 'string' && MODELS.some((x) => x.id === p.model) ? p.model : this.settings.model,
+          model: typeof p.model === 'string' && this.models().some((x) => x.id === p.model) ? p.model : this.settings.model,
           permission: p.permission === 'ask' || p.permission === 'auto' ? p.permission : this.settings.permission,
         };
-        lsSet('settings', this.settings);
+        lsSet(this.settingsKey, this.settings);
         this.out({ t: 'settings', settings: this.settings });
-        this.out({ t: 'hello', claude: { found: true, version: this.modelLabel(), path: this.engineLabel() }, dir: 'ce navigateur', settings: this.settings, quota: null, missions: this.list(), current: this.current ? { mission: this.current.mission, log: this.current.log } : null });
+        this.hello(this.current ? { mission: this.current.mission, log: this.current.log } : null);
         return;
       }
     }
@@ -118,7 +148,10 @@ class LocalBureau {
   async start(prompt: string) {
     const text = prompt.trim();
     if (!text) throw new Error('Dis à Lilou ce que tu veux.');
-    if (!getCode()) { useOffice.setState({ settingsOpen: true }); throw new Error('Entre d’abord le code d’accès dans les réglages.'); }
+    if (this.local) {
+      if (!this.models().length) await this.refreshOllama();
+      if (!this.settings.model) { useOffice.setState({ settingsOpen: true }); throw new Error('Ollama n’est pas lancé, ou n’a aucun modèle. Ouvre l’application Ollama, installe un modèle (par exemple : ollama pull qwen3:4b), puis réessaie.'); }
+    } else if (!getCode()) { useOffice.setState({ settingsOpen: true }); throw new Error('Entre d’abord le code d’accès dans les réglages.'); }
     if (modelInfo(this.settings.model)?.provider === 'claude' && !getClaudeKey()) { useOffice.setState({ settingsOpen: true }); throw new Error('Connecte-toi d’abord à Claude dans les réglages, ou choisis l’IA gratuite.'); }
     if (this.current?.mission.status === 'working') throw new Error('L’équipe est déjà sur une mission. Attends qu’elle la rende, ou arrête-la.');
     if (this.current) this.close();
@@ -175,9 +208,12 @@ class LocalBureau {
         return name;
       },
       takeNotes: () => cur.notes.splice(0),
-      chat: (messages, json) => (modelInfo(this.settings.model)?.provider === 'claude'
-        ? claude.chat(this.settings.model, messages, ctrl.signal)
-        : api.chat(this.settings.model, messages, ctrl.signal, json)),
+      chat: (messages, json) => {
+        const provider = modelInfo(this.settings.model)?.provider;
+        if (provider === 'claude') return claude.chat(this.settings.model, messages, ctrl.signal);
+        if (provider === 'ollama') return ollama.chat(this.settings.model, messages, ctrl.signal, json);
+        return api.chat(this.settings.model, messages, ctrl.signal, json);
+      },
     };
     const t0 = Date.now();
     try {

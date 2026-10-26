@@ -32,6 +32,8 @@ function furnitureLabel(id: string, kind: string, role?: Role): string {
     case 'bin': return 'La corbeille';
     case 'jukebox': return 'Le jukebox';
     case 'cabinet': return 'Le tiroir de l’analyste : couleurs, types de texte, infos à retenir';
+    case 'note': return 'Une note : comment ça marche';
+    case 'lever': return 'Le levier du cerveau : Claude (orange) ou l’IA gratuite (vert)';
   }
   return id;
 }

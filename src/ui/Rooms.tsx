@@ -9,12 +9,13 @@ import { world } from '../engine/instance.ts';
 import { savePref, teamList, useOffice, type ActView, type Tod } from '../state/store.ts';
 import { useShallow } from 'zustand/react/shallow';
 import { fileIcon, fmtClock, fmtDate, fmtDuration, fmtSize, plural, readable, tilde } from './format.ts';
-import { party } from './interact.ts';
 import { mdToHtml } from './md.ts';
 import { Avatar } from './Panel.tsx';
 import { tidy } from './tidy.ts';
 import { bureau } from '../local/bureau.ts';
 import { DrawerRoom, RulesRoom, SkillsRoom } from './Extras.tsx';
+import { JukeboxRoom } from './Jukebox.tsx';
+import { startTour } from './tour.ts';
 
 const ICON: Record<string, string> = {
   search: '🔎', web: '🌐', read: '📖', write: '✍️', edit: '✏️', bash: '💻', plan: '📋', skill: '🎓', mcp: '🔌', other: '⚙️',
@@ -51,6 +52,7 @@ export function Rooms() {
     case 'drawer': return <DrawerRoom />;
     case 'skills': return <SkillsRoom />;
     case 'rules': return <RulesRoom />;
+    case 'howto': return <HowtoRoom />;
   }
 }
 
@@ -214,7 +216,13 @@ function MachineRoom() {
   const mission = useOffice((s) => s.mission);
   const dir = useOffice((s) => s.dir);
   const local = engine === 'claude-code';
-  const rows: [string, React.ReactNode][] = local ? [
+  const rows: [string, React.ReactNode][] = engine === 'ollama' ? [
+    ['Moteur', claude?.found ? 'Ollama, l’IA gratuite qui tourne sur ton ordinateur' : 'Ollama ne répond pas (ou n’a aucun modèle)'],
+    ['Cerveau de l’équipe', claude?.version || '—'],
+    ['Quota', 'aucun : c’est ton ordinateur qui travaille (plus lent, mais gratuit et privé)'],
+    ['Recherche web', 'par le serveur local (DuckDuckGo, ou Tavily si une clé est configurée)'],
+    ['Tes données', 'sur ton ordinateur uniquement : missions, fichiers, tiroir, skills.'],
+  ] : local ? [
     ['Moteur', claude?.found ? `Claude Code ${claude.version}, avec ton compte Claude` : 'Claude Code introuvable sur cet ordinateur'],
     ['Cerveau de l’équipe', settings.model || 'le modèle par défaut de Claude Code'],
     ['Permissions', settings.permission === 'auto' ? 'automatiques : l’agent lève la main pour les gestes risqués' : 'demandées avant chaque fichier'],
@@ -233,7 +241,7 @@ function MachineRoom() {
       <section className="room-sec">
         <h4>Comment ça marche</h4>
         <p className="small">Lilou et l’analyste sont de vrais agents IA. À chaque étape, l’IA choisit une action (chercher sur internet, lire une page, écrire un fichier, confier une tâche…) ; le bureau la montre aussitôt : un robot qui tape, une bulle, un rapport posé sur le bureau de Lilou.</p>
-        <p className="small muted">{local ? 'Version locale : Lilou est une vraie séance Claude Code lancée dans le dossier de la mission, et l’analyste un vrai sous-agent Claude Code, avec ton compte Claude.' : 'Version en ligne : le serveur Cloudflare ne fait que relayer (l’IA gratuite, la recherche, la lecture des pages). Avec ta clé API Claude, les appels partent directement de ton navigateur chez Claude.'}</p>
+        <p className="small muted">{engine === 'ollama' ? 'Version locale, IA gratuite : Lilou et l’analyste parlent à Ollama, sur ton ordinateur. Le levier, à côté du serveur, les remet sur Claude.' : local ? 'Version locale : Lilou est une vraie séance Claude Code lancée dans le dossier de la mission, et l’analyste un vrai sous-agent Claude Code, avec ton compte Claude.' : 'Version en ligne : le serveur Cloudflare ne fait que relayer (l’IA gratuite, la recherche, la lecture des pages). Avec ta clé API Claude, les appels partent directement de ton navigateur chez Claude.'}</p>
         <p className="small muted">D’après « Le Bureau des agents » de VibesMoney (licence MIT).</p>
       </section>
       <div className="row"><button className="btn small" onClick={() => useOffice.setState({ modal: null, settingsOpen: true })}>⚙️ Réglages</button></div>
@@ -241,13 +249,28 @@ function MachineRoom() {
   );
 }
 
-// ── Le jukebox (sans musique : on allège le bureau) ──
-function JukeboxRoom() {
+// ── La note posée près du bureau de Lilou : comment ça marche ──
+function HowtoRoom() {
+  const engine = useOffice((s) => s.engine);
   return (
-    <Shell title="Le jukebox" sub="En pause : pas de musique, pour garder le bureau léger">
-      <p className="muted">Le jukebox est débranché. Mais il reste une surprise…</p>
+    <Shell title="Comment ça marche" sub="La note posée sur le pupitre, à côté du bureau de Lilou">
+      <ol className="steps big">
+        <li><b>Tu dis à Lilou ce que tu veux</b>, au clavier ou à la voix. Les bulles grises, sous sa réponse, te donnent des idées.</li>
+        <li><b>Elle fait le plan et appelle l’analyste</b>, qui file à son poste.</li>
+        <li><b>Tu le regardes travailler</b>, en vrai : chaque bulle, c’est ce qu’il fait à cet instant.</li>
+        <li><b>Ils te rendent le travail</b> : les rapports arrivent sur l’imprimante (« Les rendus »), à lire ou télécharger.</li>
+      </ol>
+      <section className="room-sec">
+        <h4>Le levier, à côté du serveur</h4>
+        <p className="small">Il choisit le cerveau de l’équipe. <b style={{ color: 'var(--orange)' }}>Orange : Claude</b>{engine === 'cloud' ? ' (avec ta clé API Claude)' : ' (Claude Code, avec ton compte Claude)'}. <b style={{ color: 'var(--green)' }}>Vert : l’IA gratuite</b>{engine === 'cloud' ? ' (Cloudflare Workers AI)' : ' (Ollama, qui tourne sur ton ordinateur)'}. Clique dessus pour basculer, entre deux missions.</p>
+      </section>
+      <section className="room-sec">
+        <h4>Les autres objets</h4>
+        <p className="small">Le caisson à côté de l’analyste, c’est son tiroir (tes couleurs, tes types de texte, ce qu’il faut retenir). Le tableau, c’est le plan de Lilou. Les archives, les missions passées. Le jukebox joue tes liens YouTube. Et clique sur le reste : il y a des surprises.</p>
+      </section>
       <div className="row">
-        <button className="btn" onClick={() => { useOffice.setState({ modal: null }); party(); }}>🪩 Mode soirée</button>
+        <button className="btn small primary" onClick={() => { useOffice.setState({ modal: null }); void startTour(); }}>🎤 La visite guidée</button>
+        <button className="btn small" onClick={() => useOffice.setState({ modal: { kind: 'machine' } })}>🖥️ La machine</button>
       </div>
     </Shell>
   );

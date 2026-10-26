@@ -6,6 +6,7 @@ import { applySound } from '../audio/sound.ts';
 import { replaySpeed, stopReplay } from '../net/link.ts';
 import { savePref, useOffice, type Tod } from '../state/store.ts';
 import { fmtClock } from './format.ts';
+import { togglePanel } from './Panel.tsx';
 import { startTour } from './tour.ts';
 
 export function Logo({ size = 26 }: { size?: number }) {
@@ -14,6 +15,22 @@ export function Logo({ size = 26 }: { size?: number }) {
       <span className="logo-visor"><i /><i /></span>
     </span>
   );
+}
+
+/** Le plein écran (le vrai : celui du navigateur, sans barre d'adresse). */
+function useFullscreen() {
+  const [on, setOn] = useState(() => typeof document !== 'undefined' && !!document.fullscreenElement);
+  useEffect(() => {
+    const f = () => setOn(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', f);
+    return () => document.removeEventListener('fullscreenchange', f);
+  }, []);
+  const toggle = () => {
+    sfx('click');
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    else void document.documentElement.requestFullscreen().catch(() => useOffice.getState().toast('info', 'Ton navigateur refuse le plein écran : essaie la touche F11.'));
+  };
+  return { on, toggle };
 }
 
 function useTick(on: boolean) {
@@ -44,6 +61,8 @@ export function TopBar() {
   const filming = useOffice((s) => s.filming);
   const sound = useOffice((s) => s.sound);
   const tod = useOffice((s) => s.tod);
+  const panelOpen = useOffice((s) => s.panelOpen);
+  const full = useFullscreen();
   useTick(busySince !== null);
   const elapsed = workMs + (busySince ? Date.now() - busySince : 0);
   const done = plan.filter((p) => p.status === 'completed').length;
@@ -114,6 +133,8 @@ export function TopBar() {
         <button className="icon-btn" title={sound ? 'Couper le son (M)' : 'Remettre le son (M)'} onClick={() => toggle('sound')}>{sound ? '🔊' : '🔇'}</button>
         <button className={`icon-btn ${vertical ? 'on' : ''}`} title="Cadre vertical 9:16, pour filmer un reel (V)" onClick={() => toggle('vertical')}>📱</button>
         <button className={`icon-btn ${filming ? 'on' : ''}`} title="Mode tournage : juste le bureau et Lilou (F)" onClick={() => toggle('filming')}>🎬</button>
+        <button className={`icon-btn ${panelOpen ? 'on' : ''}`} title={panelOpen ? 'Replier le panneau de droite (P)' : 'Ouvrir le panneau de droite (P)'} onClick={() => togglePanel()}>▥</button>
+        <button className={`icon-btn ${full.on ? 'on' : ''}`} title={full.on ? 'Quitter le plein écran' : 'Plein écran'} onClick={full.toggle}>{full.on ? '🗗' : '⛶'}</button>
         <button className="icon-btn" title="Réglages" onClick={() => { sfx('open'); useOffice.setState({ settingsOpen: true }); }}>⚙️</button>
       </div>
     </header>

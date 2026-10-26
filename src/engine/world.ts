@@ -22,6 +22,8 @@ type Task =
 
 const WALK_SPEED = 58; // pixels par seconde
 
+interface StrollSpot { tile: Tile; face: Dir; ms: number; pose?: Pose; fx?: () => void; /** assez près de son bureau pour une pause en pleine mission */ near?: boolean }
+
 export class Actor {
   id: string;
   role: Role;
@@ -110,10 +112,15 @@ export class World {
   /** la musique du jukebox : est-ce qu'elle joue, et l'énergie des basses (0 à 1) */
   musicOn = false;
   musicLevel = 0;
+  /** le levier du cerveau : vrai = l'IA gratuite, faux = Claude */
+  leverFree = false;
+  leverAt = -9;
   bobUntil = 0;
   private noteAt = 0;
   private steamAt = 0;
-  private waveAt = 6;
+  /** quand Lilou repart faire un tour (elle ne reste jamais plantée) */
+  private strollAt = 3;
+  private lastStroll = -1;
   rosterVersion = 0;
   private rosterListeners = new Set<() => void>();
 
@@ -246,8 +253,12 @@ export class World {
         this.missionActive = true;
         chef.thinkAt = this.time;
         if (live) {
-          if (!chef.seated && !chef.busy) this.queue(chef, { t: 'wait', ms: 500, pose: 'wave', dir: 'down' }, { t: 'walk', tile: CHEF_SEAT.tile }, { t: 'sit', seat: CHEF_SEAT });
+          // elle laisse tomber sa promenade et file à son bureau
+          const strolling = chef.busy;
+          chef.tasks = [];
+          if (!chef.seated && !strolling) this.queue(chef, { t: 'wait', ms: 500, pose: 'wave', dir: 'down' }, { t: 'walk', tile: CHEF_SEAT.tile }, { t: 'sit', seat: CHEF_SEAT });
           else if (!chef.seated) this.queue(chef, { t: 'walk', tile: CHEF_SEAT.tile }, { t: 'sit', seat: CHEF_SEAT });
+          else if (chef.cur && chef.cur.t !== 'sit') this.queue(chef, { t: 'walk', tile: CHEF_SEAT.tile }, { t: 'sit', seat: CHEF_SEAT });
         } else this.snapSeat(chef, CHEF_SEAT);
         break;
       case 'think': {
@@ -461,10 +472,11 @@ export class World {
         this.fx.floatIcon(a.x, a.y - 24, iconFor(a.act));
       }
     }
-    // Lilou salue de temps en temps quand il attend à l'accueil
-    if (!this.missionActive && !chef.busy && !chef.seated && this.time > this.waveAt) {
-      this.waveAt = this.time + 9 + Math.random() * 6;
-      this.queue(chef, { t: 'wait', ms: 1200, pose: 'wave', dir: 'down' });
+    // Lilou ne reste jamais plantée : sans mission, elle fait le tour de l'open space ; pendant une mission,
+    // quand elle attend l'analyste depuis un moment, elle va se dégourdir les jambes, puis revient à son bureau
+    if (!chef.busy && this.time > this.strollAt) {
+      if (!this.missionActive && !chef.seated) this.stroll(false);
+      else if (this.missionActive && chef.seated && this.time - Math.max(chef.actAt, chef.thinkAt) > 24) this.stroll(true);
     }
     for (const a of [...this.actors.values()]) {
       if (!a.cur && a.tasks.length) { a.cur = a.tasks.shift()!; this.startTask(a, a.cur); }
@@ -477,6 +489,46 @@ export class World {
       if (a.moving || a.cur || a.seated || a.cheerUntil > this.time) moving = true;
     }
     return moving;
+  }
+
+  /** Les endroits où Lilou aime passer, et ce qu'elle y fait. */
+  private strollSpots(): StrollSpot[] {
+    const spots: StrollSpot[] = [
+      { tile: [17, 13], face: 'down', ms: 2600, fx: () => this.coffee(), near: true },
+      { tile: [9, 5], face: 'up', ms: 2000, fx: () => this.cooler(), near: true },
+      { tile: [3, 3], face: 'up', ms: 3200 },
+      { tile: [18, 3], face: 'up', ms: 3200 },
+      { tile: [15, 13], face: 'down', ms: 2400, fx: () => this.fx.floatIcon(15 * T, 13 * T - 2, 'note') },
+      { tile: [20, 10], face: 'down', ms: 2000, fx: () => this.wiggle('plant-analyse', 20 * T + 8, 11 * T) },
+      { tile: SPOTS.board, face: 'up', ms: 2600, pose: 'write', near: true },
+      { tile: [4, 13], face: 'down', ms: 2600 },
+      { tile: [12, 5], face: 'up', ms: 1800, near: true },
+      { tile: SPOTS.reception, face: 'down', ms: 1600, pose: 'wave' },
+    ];
+    return spots.filter((s) => this.grid[s.tile[1]]?.[s.tile[0]]);
+  }
+
+  /** Une petite promenade : elle va quelque part, s'y arrête un instant, puis (en mission) revient s'asseoir. */
+  private stroll(backToDesk: boolean) {
+    const chef = this.chef;
+    const spots = this.strollSpots();
+    if (!spots.length) return;
+    // jamais deux fois de suite au même endroit ; en mission, seulement les coins proches de son bureau
+    const pool = spots.map((s, i) => ({ s, i })).filter(({ s, i }) => i !== this.lastStroll && (!backToDesk || s.near));
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (!pick) return;
+    this.lastStroll = pick.i;
+    const s = pick.s;
+    this.queue(chef,
+      { t: 'walk', tile: s.tile, face: s.face },
+      { t: 'call', fn: () => s.fx?.() },
+      { t: 'wait', ms: s.ms, pose: s.pose, dir: s.face },
+    );
+    if (backToDesk) {
+      this.queue(chef, { t: 'walk', tile: CHEF_SEAT.tile }, { t: 'sit', seat: CHEF_SEAT });
+      chef.actAt = this.time;
+      this.strollAt = this.time + 30 + Math.random() * 20;
+    } else this.strollAt = this.time + 2 + Math.random() * 4;
   }
 
   // ── Les petits gestes du bureau (quand on clique sur les objets) ──

@@ -3,7 +3,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { sfx } from '../audio/sfx.ts';
 import { savePref, useOffice } from '../state/store.ts';
-import { api, claude, getClaudeKey, getCode, modelInfo, MODELS, setClaudeKey, setCode } from '../local/api.ts';
+import { api, availableModels, claude, getClaudeKey, getCode, modelInfo, MODELS, setClaudeKey, setCode } from '../local/api.ts';
+import { bureau } from '../local/bureau.ts';
+import { pullLever } from '../net/link.ts';
 import { dbClear, lsClear } from '../local/db.ts';
 import { download } from '../local/zip.ts';
 import { backupData, restoreData } from './Extras.tsx';
@@ -218,6 +220,25 @@ function ClaudeLogin() {
   );
 }
 
+/** Le levier, en version réglages : Claude ou l'IA gratuite. */
+function Brain() {
+  const engine = useOffice((s) => s.engine);
+  const model = useOffice((s) => s.settings.model);
+  const free = engine === 'ollama' || (engine === 'cloud' && modelInfo(model)?.provider !== 'claude');
+  const claudeName = engine === 'cloud' ? 'Claude (ta clé API)' : 'Claude (ton compte, avec Claude Code)';
+  const freeName = engine === 'cloud' ? 'IA gratuite (Cloudflare)' : 'IA gratuite (Ollama, sur ton PC)';
+  return (
+    <div className="field">
+      <span>Le cerveau de l’équipe (le levier, à côté du serveur)</span>
+      <div className="seg brain">
+        <button className={!free ? 'on claude' : ''} onClick={() => { if (free) pullLever(); }}>🟠 {claudeName}</button>
+        <button className={free ? 'on free' : ''} onClick={() => { if (!free) pullLever(); }}>🟢 {freeName}</button>
+      </div>
+      {engine !== 'cloud' && <small className="muted">Sur ton ordinateur, changer de cerveau recharge le bureau (entre deux missions).</small>}
+    </div>
+  );
+}
+
 const CLAUDE_CODE_MODELS: [string, string][] = [['sonnet', 'Sonnet (rapide, recommandé)'], ['opus', 'Opus (le plus fin)'], ['haiku', 'Haiku (éclair, économe)'], ['', 'Le modèle par défaut de Claude Code']];
 
 export function SettingsPanel() {
@@ -237,7 +258,31 @@ export function SettingsPanel() {
       <div className="modal settings" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head"><b>Réglages du bureau</b><button className="close" onClick={close} aria-label="Fermer">×</button></div>
         <div className="modal-body">
-          {engine === 'claude-code' ? (
+          <Brain />
+          {engine === 'ollama' ? (
+            <>
+              <div className="field">
+                <span>Ollama, l’IA gratuite sur cet ordinateur</span>
+                {claudeInfo?.found
+                  ? <small className="ok-text">✓ Ollama répond : l’équipe travaille gratuitement, sur ton ordinateur.</small>
+                  : <small className="err-text">Ollama ne répond pas, ou n’a aucun modèle. Ouvre l’application Ollama (ollama.com : elle s’installe sans droits d’administrateur), puis dans un terminal : ollama pull qwen3:4b</small>}
+                <div className="row"><button className="btn small" onClick={() => { void bureau.refreshOllama(); }}>↻ Chercher à nouveau les modèles</button></div>
+              </div>
+              <label className="field">
+                <span>Le cerveau de l’équipe</span>
+                <select id="model" value={settings.model} onChange={(e) => send({ t: 'settings', settings: { model: e.target.value } })}>
+                  {availableModels(true).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                  {!availableModels(true).length && <option value="">Aucun modèle installé</option>}
+                </select>
+                <small className="muted">Les plus légers sont en premier : sur un ordinateur portable, un modèle de 3 à 8 milliards de paramètres (par exemple qwen3:4b ou llama3.2:3b) répond bien plus vite.</small>
+              </label>
+              <div className="field">
+                <span>Les permissions</span>
+                <label className="radio"><input type="radio" checked={settings.permission === 'auto'} onChange={() => send({ t: 'settings', settings: { permission: 'auto' } })} /> L’équipe écrit ses fichiers seule</label>
+                <label className="radio"><input type="radio" checked={settings.permission === 'ask'} onChange={() => send({ t: 'settings', settings: { permission: 'ask' } })} /> Elle demande avant chaque fichier</label>
+              </div>
+            </>
+          ) : engine === 'claude-code' ? (
             <>
               <div className="field">
                 <span>Ton compte Claude (Claude Code sur cet ordinateur)</span>

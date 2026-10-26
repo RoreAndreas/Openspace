@@ -11,13 +11,17 @@ Chaque bulle montre ce que l'agent fait vraiment, à cet instant : une recherche
 
 > D'après [Le Bureau des agents](https://github.com/devlikemasta/bureau-des-agents) de [VibesMoney](https://vibesmoney.com) (licence MIT).
 
-## Trois façons de faire travailler l'équipe
+## Quatre façons de faire travailler l'équipe
 
 | | Où | Le cerveau | Ce que ça coûte |
 |---|---|---|---|
 | **En ligne, IA gratuite** | Cloudflare (une adresse web) | Workers AI (Llama) | Gratuit, dans la limite du quota quotidien |
 | **En ligne, avec Claude** | Cloudflare | Claude, avec **ta clé API Claude** (« Se connecter à Claude » dans les réglages) | Facturé à l'usage sur ton compte API Claude |
 | **Sur ton ordinateur, avec ton compte Claude** | Ton PC (`npm start`) | Claude Code, connecté à **ton abonnement Claude** | Ton abonnement Pro ou Max |
+| **Sur ton ordinateur, IA gratuite** | Ton PC (`npm start`) | [Ollama](https://ollama.com), une IA qui tourne sur ton PC | Gratuit (plus lent) |
+
+**Le levier**, à côté du serveur dans le bureau, change le cerveau de l'équipe : orange pour Claude, vert pour l'IA
+gratuite. Sur ton ordinateur, il passe de Claude Code à Ollama. En ligne, de Claude (ta clé API) à Workers AI.
 
 Pourquoi l'abonnement Claude ne sert que sur ton ordinateur : Anthropic n'autorise pas une application en ligne à
 utiliser la connexion d'un compte Pro ou Max. En ligne, on passe donc par une clé API, créée avec ton compte Claude sur
@@ -38,6 +42,10 @@ ton compte : c'est prévu et autorisé.
 - **Le règlement du bureau** (⚙️, puis 📜) : qui tu es, ton entreprise, comment travailler pour toi.
 - **Les rendus** : chaque rapport se lit dans le bureau ou se télécharge, avec l'historique de ses versions. Une mission entière se télécharge en `.zip`.
 - **Les missions précédentes** (touche `H`) : on peut les rejouer.
+- **La note « Comment ça marche »** : le post-it jaune, à côté du bureau de Lilou.
+- **Les idées de mission** : des bulles grises au-dessus du chat. Après une mission, des idées de retouche.
+- **Le jukebox** : colle tes liens YouTube. Lecture, pause, suivant, en boucle (la liste ou un morceau), aléatoire. Un petit lecteur reste en bas à gauche (raccourci `J`).
+- **L'écran** : le panneau de droite se replie (la languette, le bouton ▥ ou la touche `P`), et un bouton passe en plein écran.
 
 ## Tes données
 
@@ -100,10 +108,21 @@ Le bureau s'ouvre sur http://localhost:4848. Il reconnaît Claude Code tout seul
 
 Tu peux aussi demander à Claude Code : « Installe et lance l'open space : https://github.com/RoreAndreas/Openspace ».
 
+## Sur ton ordinateur, avec l'IA gratuite (Ollama)
+
+Pour tester sans compte et sans payer. Ollama s'installe **sans droits d'administrateur**.
+
+1. Installe Ollama depuis [ollama.com](https://ollama.com) et ouvre-le.
+2. Dans un terminal, installe un modèle léger : `ollama pull qwen3:4b` (ou `llama3.2:3b`). Les gros modèles marchent aussi, mais sont lents sur un ordinateur portable.
+3. Lance le bureau (`npm start` ou `Lancer l'open space.bat`), puis clique sur **le levier**, à côté du serveur : il passe au vert.
+
+Le modèle se choisit dans les réglages (⚙️). La recherche web passe par le serveur local (DuckDuckGo, ou Tavily avec une
+variable d'environnement `TAVILY_KEY`). Si Ollama tourne ailleurs, indique son adresse avec `OLLAMA_HOST`.
+
 ## Sous le capot
 
 - **`server/`** : la version locale (Node). Le pont lance Claude Code (`claude -p`, en JSON ligne par ligne) dans le dossier de la mission et traduit ce qu'il fait en événements du bureau. Il marche aussi sous Windows.
-- **`worker/index.ts`** : le Worker Cloudflare. Il sert le bureau et expose `/api/chat`, `/api/search`, `/api/fetch` et `/api/ping`. Tout est protégé par le code d'accès et rien n'est stocké.
+- **`worker/index.ts`** : le Worker Cloudflare. Il sert le bureau et expose `/api/chat`, `/api/search`, `/api/fetch` et `/api/ping`. Tout est protégé par le code d'accès et rien n'est stocké. La recherche et la lecture des pages sont dans `shared/web.ts`, partagé avec le serveur local.
 - **`src/local/`** : l'équipe, dans le navigateur.
   - `agent.ts` : la boucle de travail de Lilou et de l'analyste. L'IA répond par `{ say, action, input }`, le bureau exécute l'action et la montre.
   - `bureau.ts` : les missions, les fichiers, l'enregistrement (IndexedDB).
@@ -126,6 +145,7 @@ Pour `wrangler dev`, mets le code d'accès dans un fichier `.dev.vars` : `ACCESS
 
 - **Le Bureau des agents** de VibesMoney (MIT), d'où vient tout le bureau en pixel art.
 - **Les bruitages** : [ZzFX](https://github.com/KilledByAPixel/ZzFX) (MIT).
+- **La musique** : les vidéos YouTube que tu ajoutes au jukebox (lecteur youtube-nocookie.com).
 - **Les polices** : Pixelify Sans et Plus Jakarta Sans (licence OFL).
 
 Licence MIT (voir [LICENSE](LICENSE)).

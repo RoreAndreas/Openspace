@@ -11,7 +11,7 @@ export const H = ROWS * T;
 
 export type FurnKind =
   | 'desk' | 'chefDesk' | 'chair' | 'chefChair' | 'plantBig' | 'plantTall' | 'plantSmall' | 'rack' | 'printer'
-  | 'cooler' | 'coffee' | 'sofa' | 'tableLow' | 'shelf' | 'lamp' | 'easel' | 'bin' | 'jukebox' | 'cabinet';
+  | 'cooler' | 'coffee' | 'sofa' | 'tableLow' | 'shelf' | 'lamp' | 'easel' | 'bin' | 'jukebox' | 'cabinet' | 'note' | 'lever';
 
 export interface Furn {
   id: string;
@@ -95,6 +95,10 @@ furn.push({ id: 'lamp-r', kind: 'lamp', tx: 20, ty: 14, w: 1, h: 1 });
 furn.push({ id: 'bin', kind: 'bin', tx: 7, ty: 12, w: 0, h: 0 });
 // le tiroir de l'analyste (ses références), juste à côté de son bureau
 furn.push({ id: 'cabinet', kind: 'cabinet', tx: 19, ty: 12, w: 1, h: 1, role: 'analyse' });
+// la note « Comment ça marche », sur son petit pupitre, à côté du bureau de Lilou
+furn.push({ id: 'note', kind: 'note', tx: 13, ty: 7, w: 1, h: 1 });
+// le levier du cerveau de l'équipe (Claude ou l'IA gratuite), à côté du serveur
+furn.push({ id: 'lever', kind: 'lever', tx: 13, ty: 3, w: 1, h: 1 });
 
 export const FURNITURE = furn;
 export const SEATS = seats;
